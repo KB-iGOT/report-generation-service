@@ -75,9 +75,9 @@ class ReportService:
 
             def generate_csv_stream(df, cols):
                 try:
-                    yield ','.join(cols) + '\n'
+                    yield '|'.join(cols) + '\n'
                     for row in df.itertuples(index=False, name=None):
-                        yield ','.join(map(str, row)) + '\n'
+                        yield '|'.join(map(str, row)) + '\n'
                 finally:
                     # Safe cleanup after generator is fully consumed
                     df.drop(df.index, inplace=True)
@@ -145,9 +145,9 @@ class ReportService:
             # Generate CSV stream from the result DataFrame
             def generate_csv_stream(df, cols):
                 try:
-                    yield ','.join(cols) + '\n'
+                    yield '|'.join(cols) + '\n'
                     for row in df.itertuples(index=False, name=None):
-                        yield ','.join(map(str, row)) + '\n'
+                        yield '|'.join(map(str, row)) + '\n'
                 finally:
                     df.drop(df.index, inplace=True)
                     del df
@@ -205,7 +205,7 @@ class ReportService:
             # Generate CSV stream from the result DataFrame
             def generate_csv_stream(df, cols):
                 try:
-                    yield ','.join(cols) + '\n'
+                    yield '|'.join(cols) + '\n'
                     for row in df.itertuples(index=False, name=None):
                         row_dict = dict(zip(cols, row))
                         if IS_MASKING_ENABLED.lower() == 'true':
@@ -228,7 +228,7 @@ class ReportService:
                                     row_dict['phone_number'] = '*' * len(phone)
 
                         # Convert back to row and yield
-                        yield ','.join([str(row_dict.get(col, '')) for col in cols]) + '\n'
+                        yield '|'.join([str(row_dict.get(col, '')) for col in cols]) + '\n'
                 finally:
                     df.drop(df.index, inplace=True)
                     del df
