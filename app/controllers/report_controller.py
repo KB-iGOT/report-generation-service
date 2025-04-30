@@ -7,6 +7,7 @@ import ctypes
 import time as time_module
 from app.authentication.AccessTokenValidator import AccessTokenValidator
 from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED
+from app.services.GcsToBigQuerySyncService import GcsToBigQuerySyncService
 
 # Configure logger
 logging.basicConfig(level=logging.INFO)
@@ -278,3 +279,12 @@ def get_org_user_report(orgId):
             ctypes.CDLL("libc.so.6").malloc_trim(0)
         except Exception as e:
             logger.exception("malloc_trim failed:", e)
+
+@report_controller.route('/gcs-to-bq/sync', methods=['GET'])
+def sync_gcs_to_bq():
+    try:
+        sync_service = GcsToBigQuerySyncService()
+        sync_service.sync_all_tables()
+        return jsonify({"status": "success", "message": "All tables synced successfully"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500

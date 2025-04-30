@@ -20,3 +20,13 @@ GCP_ORG_USER_TABLE_NAME = os.environ.get('GCP_ORG_USER_TABLE_NAME', 'master_user
 MASTER_USER_TABLE = f"{GCP_PROJECT}.{GCP_DB_NAME}.{GCP_ORG_USER_TABLE_NAME}"
 GCP_CREDENTIALS_PATH = os.environ.get('GCP_CREDENTIALS_PATH', '/home/sahilchaudhary/Downloads/prj-kb-nprd-uat-gcp-1006-c691f3c2615b.json')
 IS_MASKING_ENABLED = os.environ.get('IS_MASKING_ENABLED', 'False')
+#SYNC_TABLES=os.environ.get("SYNC_TABLES", "master_user_enrolments, master_org_hierarchy_data, master_user_details_test")
+SYNC_TABLES=os.environ.get("SYNC_TABLES", "master_user_details_test")
+GCS_URI_MASTER_USER_DETAILS_TEST=os.environ.get("GCS_URI_MASTER_USER_DETAILS","gs://igotuatdp/unifiedReports/unified_user_details.parquet")
+GCS_URI_MASTER_USER_ENROLMENTS=os.environ.get("GCS_URI_MASTER_USER_ENROLMENTS","gs://igotuatdp/unifiedReports/unified_enrolments_latest.parquet")
+GCS_URI_MASTER_ORG_HIERARCHY_DATA=os.environ.get("GCS_URI_MASTER_ORG_HIERARCHY_DATA","gs://igotuatdp/unifiedReports/unified_org_details.parquet")
+DATASET=os.environ.get("GCS_URI_MASTER_ORG_HIERARCHY_DATA","cumulative_master_data")
+MERGE_KEYS_MASTER_USER_DETAILS_TEST=os.environ.get("MERGE_KEYS_MASTER_USER_DETAILS","user_id, mdo_id")
+MERGE_KEYS_MASTER_USER_ENROLMENTS=os.environ.get("MERGE_KEYS_MASTER_USER_ENROLMENTS","user_id, content_id, mdo_id")
+MERGE_KEYS_MASTER_ORG_HIERARCHY_DATA=os.environ.get("MERGE_KEYS_MASTER_ORG_HIERARCHY_DATA","mdo_id")
+
