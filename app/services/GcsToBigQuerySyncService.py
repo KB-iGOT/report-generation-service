@@ -47,8 +47,8 @@ class GcsToBigQuerySyncService:
             merge_keys_attr = f'MERGE_KEYS_{table_name.upper()}'
             merge_keys_str = getattr(Constants, merge_keys_attr, None)
 
-            if not all([gcs_uri, dataset, merge_keys_str]):
-                logger.warning(f"Skipping table {table_name}: Missing GCS URI, dataset, or merge keys.")
+            if not all([gcs_uri, merge_keys_str]):
+                logger.warning(f"Skipping table {table_name}: Missing GCS URI or merge keys.")
                 continue
 
             merge_keys = [key.strip() for key in merge_keys_str.split(',')]

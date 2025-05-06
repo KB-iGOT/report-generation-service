@@ -2,6 +2,7 @@ import logging
 from app.services.fetch_data_bigQuery import BigQueryService
 from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE,MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED
 import gc
+import pandas as pd
 
 
 logging.basicConfig(
@@ -72,6 +73,8 @@ class ReportService:
                 if missing_columns:
                     ReportService.logger.info(f"Warning: Missing columns skipped: {missing_columns}")
                 merged_df = enrollment_df[existing_columns]
+            else:
+                merged_df = enrollment_df
 
             def generate_csv_stream(df, cols):
                 try:
@@ -244,6 +247,7 @@ class ReportService:
             return None
 
 
+    @staticmethod
     def _get_mdo_id_org_list(bigquery_service: BigQueryService, mdo_id: str) -> list:
         org_hierarchy_query = f"""
             DECLARE input_id STRING;
