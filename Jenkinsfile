@@ -28,13 +28,13 @@ node() {
                 sh("bash -x build.sh ${build_tag} ${env.NODE_NAME} ${docker_server}")
             }
 
- /*       stage('Test') {
+        stage('Test') {
             steps {
                 sh 'pytest --cov=app --cov-report=xml'
                 junit 'junit.xml'
                 publishCoverage adapters: [jacocoAdapter('coverage.xml')]
             }
-        } */
+        } 
 
         stage('ArchiveArtifacts') {
             archiveArtifacts "metadata.json"

@@ -7,6 +7,7 @@ import ctypes
 import time as time_module
 from app.authentication.AccessTokenValidator import AccessTokenValidator
 from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED
+from app.services.GcsToBigQuerySyncService import GcsToBigQuerySyncService
 
 # Configure logger
 logging.basicConfig(level=logging.INFO)
@@ -114,7 +115,7 @@ def get_report(org_id):
             logger.info("inside malloc_trim:")
             ctypes.CDLL("libc.so.6").malloc_trim(0)
         except Exception as e:
-            logger.exception("malloc_trim failed:", e)
+            logger.exception("malloc_trim failed: %s", str(e))
 
 @report_controller.route('/report/user/sync/<orgId>', methods=['POST'])
 def get_user_report(orgId):
@@ -125,7 +126,8 @@ def get_user_report(orgId):
         # Parse and validate input parameters
         data = request.get_json()
         if not data:
-            raise KeyError("Request body is missing.")
+            logger.error("Request body is missing")
+            return jsonify({'error': 'Request body is missing.'}), 400
 
         user_email = data.get('userEmail')
         user_phone = data.get('userPhone')
@@ -146,10 +148,13 @@ def get_user_report(orgId):
 
         # Validate date range if provided
         if start_date and end_date:
-            start_date = datetime.strptime(start_date, '%Y-%m-%d')
-            end_date = datetime.strptime(end_date, '%Y-%m-%d')
-            start_date = datetime.combine(start_date.date(), time.min)  # 00:00:00
-            end_date = datetime.combine(end_date.date(), time.max)      # 23:59:59.999999
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d')
+                end_date = datetime.strptime(end_date, '%Y-%m-%d')
+                start_date = datetime.combine(start_date.date(), time.min)  # 00:00:00
+                end_date = datetime.combine(end_date.date(), time.max)      # 23:59:59.999999
+            except ValueError:
+                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
 
         required_columns = data.get('required_columns', [])
 
@@ -202,7 +207,7 @@ def get_user_report(orgId):
             logger.info("inside malloc_trim:")
             ctypes.CDLL("libc.so.6").malloc_trim(0)
         except Exception as e:
-            logger.exception("malloc_trim failed:", e)
+            logger.exception("malloc_trim failed: %s", str(e))
 
 @report_controller.route('/report/org/user/<orgId>', methods=['POST'])
 def get_org_user_report(orgId):
@@ -212,17 +217,21 @@ def get_org_user_report(orgId):
         # Parse and validate input parameters
         data = request.get_json()
         if not data:
-            raise KeyError("Request body is missing.")
+            logger.error("Request body is missing")
+            return jsonify({'error': 'Request body is missing.'}), 400
 
         user_creation_start_date = data.get('user_creation_start_date')
         user_creation_end_date = data.get('user_creation_end_date')
 
         # Validate date range if provided
         if user_creation_start_date and user_creation_end_date:
-            user_creation_start_date = datetime.strptime(user_creation_start_date, '%Y-%m-%d')
-            user_creation_end_date = datetime.strptime(user_creation_end_date, '%Y-%m-%d')
-            user_creation_start_date = datetime.combine(user_creation_start_date.date(), time.min)  # 00:00:00
-            user_creation_end_date = datetime.combine(user_creation_end_date.date(), time.max)      # 23:59:59.999999
+            try:
+                user_creation_start_date = datetime.strptime(user_creation_start_date, '%Y-%m-%d')
+                user_creation_end_date = datetime.strptime(user_creation_end_date, '%Y-%m-%d')
+                user_creation_start_date = datetime.combine(user_creation_start_date.date(), time.min)  # 00:00:00
+                user_creation_end_date = datetime.combine(user_creation_end_date.date(), time.max)      # 23:59:59.999999
+            except ValueError:
+                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
 
         # New parameters from request body
         is_full_report_required = data.get('isFullReportRequired', False)
@@ -277,4 +286,13 @@ def get_org_user_report(orgId):
             logger.info("inside malloc_trim:")
             ctypes.CDLL("libc.so.6").malloc_trim(0)
         except Exception as e:
-            logger.exception("malloc_trim failed:", e)
+            logger.exception("malloc_trim failed: %s", str(e))
+
+@report_controller.route('/gcs-to-bq/sync', methods=['GET'])
+def sync_gcs_to_bq():
+    try:
+        sync_service = GcsToBigQuerySyncService()
+        sync_service.sync_all_tables()
+        return jsonify({"status": "success", "message": "All tables synced successfully"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500

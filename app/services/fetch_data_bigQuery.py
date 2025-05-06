@@ -42,10 +42,13 @@ class BigQueryService:
             logger.error(f"Error running query: {e}")
             return None
 
-    def test_connection(self):
+    @staticmethod
+    def test_connection(service=None):
         try:
-            results = self.run_query("SELECT 1")
-            if results:
+            if service is None:
+                service = BigQueryService()
+            results = service.run_query("SELECT 1")
+            if results is not None:
                 logger.info("BigQuery is accessible.")
                 return True
             else:
