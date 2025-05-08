@@ -322,7 +322,8 @@ class ReportService:
             if not request_org_id:
                 ReportService.logger.error("request_org_id is None or empty")
                 return False
-
+            ReportService.logger.info(f"request_org_id={request_org_id}, type={type(request_org_id)}")
+            ReportService.logger.info(f"x_org_id={x_org_id}, type={type(x_org_id)}")
             # Ensure x_org_id is valid
             if not x_org_id:
                 ReportService.logger.error("x_org_id is None or empty")
@@ -332,7 +333,7 @@ class ReportService:
 
             # Fetch the organization list using _get_mdo_id_org_list
             org_list = ReportService._get_mdo_id_org_list(bigquery_service, x_org_id)
-            org_list.append(x_org_id)  # Add input mdo_id to the list
+            org_list.append(str(x_org_id))  # Add input mdo_id to the list
 
             # Check if request_org_id is in the organization list
             is_valid = str(request_org_id) in org_list
