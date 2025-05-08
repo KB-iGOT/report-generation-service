@@ -278,18 +278,18 @@ class ReportService:
 
             WITH level_check AS (
                 SELECT
-                    input_id AS id,
+                    CAST(input_id AS STRING) AS id,
                     MAX(CASE WHEN ministry_id = input_id THEN 1 ELSE 0 END) AS is_ministry,
                     MAX(CASE WHEN department_id = input_id THEN 1 ELSE 0 END) AS is_department
                 FROM `{MASTER_ORG_HIERARCHY_TABLE}`
             ),
             orgs_from_department AS (
-                SELECT mdo_id AS organisation_id
+                SELECT CAST(mdo_id AS STRING) AS organisation_id
                 FROM `{MASTER_ORG_HIERARCHY_TABLE}`
                 WHERE department_id = input_id
             ),
             orgs_from_ministry AS (
-                SELECT mdo_id AS organisation_id
+                SELECT CAST(mdo_id AS STRING) AS organisation_id
                 FROM `{MASTER_ORG_HIERARCHY_TABLE}`
                 WHERE ministry_id = input_id
             )
@@ -308,7 +308,9 @@ class ReportService:
 
         ReportService.logger.info(f"Executing org hierarchy query for mdo_id: {mdo_id}")
         hierarchy_df = bigquery_service.run_query(org_hierarchy_query)
-        mdo_id_org_list = hierarchy_df["organisation_id"].tolist()
+
+        # Ensure all IDs are strings
+        mdo_id_org_list = [str(org_id) for org_id in hierarchy_df["organisation_id"].tolist()]
 
         _mdo_org_cache[mdo_id] = mdo_id_org_list
         return mdo_id_org_list
