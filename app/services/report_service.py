@@ -5,7 +5,7 @@ import gc
 import pandas as pd
 from cachetools import TTLCache
 
-_mdo_org_cache = TTLCache(maxsize=MAX_ORG_CACHE_SIZE, ttl=MAX_ORG_CACHE_AGE)
+_mdo_org_cache = TTLCache(maxsize=int(MAX_ORG_CACHE_SIZE), ttl=int(MAX_ORG_CACHE_AGE))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -310,7 +310,7 @@ class ReportService:
         hierarchy_df = bigquery_service.run_query(org_hierarchy_query)
 
         # Ensure all IDs are strings
-        mdo_id_org_list = [str(org_id) for org_id in hierarchy_df["organisation_id"].tolist()]
+        mdo_id_org_list = hierarchy_df["organisation_id"].tolist()
 
         _mdo_org_cache[mdo_id] = mdo_id_org_list
         return mdo_id_org_list
@@ -322,8 +322,8 @@ class ReportService:
             if not request_org_id:
                 ReportService.logger.error("request_org_id is None or empty")
                 return False
-            ReportService.logger.info(f"request_org_id={request_org_id}, type={type(request_org_id)}")
-            ReportService.logger.info(f"x_org_id={x_org_id}, type={type(x_org_id)}")
+            ReportService.logger.debug(f"request_org_id={request_org_id}, type={type(request_org_id)}")
+            ReportService.logger.debug(f"x_org_id={x_org_id}, type={type(x_org_id)}")
             # Ensure x_org_id is valid
             if not x_org_id:
                 ReportService.logger.error("x_org_id is None or empty")
@@ -333,10 +333,10 @@ class ReportService:
 
             # Fetch the organization list using _get_mdo_id_org_list
             org_list = ReportService._get_mdo_id_org_list(bigquery_service, x_org_id)
-            org_list.append(str(x_org_id))  # Add input mdo_id to the list
+            org_list.append(x_org_id)  # Add input mdo_id to the list
             ReportService.logger.info(f"The OrgId list for {request_org_id}: {len(org_list)}")
             # Check if request_org_id is in the organization list
-            is_valid = str(request_org_id) in org_list
+            is_valid = request_org_id in org_list
             ReportService.logger.info(f"Validation result for org_id {request_org_id}: {is_valid}")
             return is_valid
 
