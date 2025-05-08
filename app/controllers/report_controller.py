@@ -20,6 +20,7 @@ def get_report(org_id):
     start_timer = time_module.time()
     try:
         logger.info(f"Received request to generate report for org_id={org_id}")
+        ReportService.logger.info(f"Request headers: {dict(request.headers)}")
         x_org_id = request.headers.get(X_ORG_ID)
         logger.info(f"Received x_org_id={x_org_id}")
         if not x_org_id:
