@@ -6,7 +6,7 @@ import gc
 import ctypes
 import time as time_module
 from app.authentication.AccessTokenValidator import AccessTokenValidator
-from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED
+from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED, X_ORG_ID
 from app.services.GcsToBigQuerySyncService import GcsToBigQuerySyncService
 
 # Configure logger
@@ -20,6 +20,14 @@ def get_report(org_id):
     start_timer = time_module.time()
     try:
         logger.info(f"Received request to generate report for org_id={org_id}")
+        x_org_id = request.headers.get(X_ORG_ID)
+        logger.info(f"Received x_org_id={x_org_id}")
+        if not x_org_id:
+            logger.error("Missing 'x_org_id' in headers.")
+            return jsonify({'error': 'Organization ID is required.'}), 400
+        if not ReportService.isValidOrg(x_org_id, org_id):
+            logger.error(f"Invalid organization ID: {org_id}")
+            return jsonify({'error': f'Not authorized to view the report for : {org_id}'}), 401
         if IS_VALIDATION_ENABLED.lower() == 'true':
             # Extract and validate user token
             user_token = request.headers.get(X_AUTHENTICATED_USER_TOKEN)
@@ -71,7 +79,7 @@ def get_report(org_id):
         except Exception as e:
             error_message = str(e)
             logger.error(f"Error generating CSV stream for org_id={org_id}: {error_message}")
-            return jsonify({'error': 'Failed to generate the report due to an internal error.', 'details': error_message}), 500
+            return jsonify({'error': 'Failed to generate the report due to an error.', 'details': error_message}), 500
 
         time_taken = round(time_module.time() - start_timer, 2)
         logger.info(f"Report generated successfully for org_id={org_id} in {time_taken} seconds")
@@ -122,7 +130,14 @@ def get_user_report(orgId):
     try:
         start_timer = time_module.time()
         logger.info("Received request to generate user report")
-
+        x_org_id = request.headers.get(X_ORG_ID)
+        logger.info(f"Received x_org_id={x_org_id}")
+        if not x_org_id:
+            logger.error("Missing 'x_org_id' in headers.")
+            return jsonify({'error': 'Organization ID is required.'}), 400
+        if not ReportService.isValidOrg(x_org_id, orgId):
+            logger.error(f"Invalid organization ID: {orgId}")
+            return jsonify({'error': f'Not authorized to view the report for : {orgId}'}), 401
         # Parse and validate input parameters
         data = request.get_json()
         if not data:
@@ -214,6 +229,14 @@ def get_org_user_report(orgId):
     try:
         start_timer = time_module.time()
         logger.info("Received request to generate user report")
+        x_org_id = request.headers.get(X_ORG_ID)
+        logger.info(f"Received x_org_id={x_org_id}")
+        if not x_org_id:
+            logger.error("Missing 'x_org_id' in headers.")
+            return jsonify({'error': 'Organization ID is required.'}), 400
+        if not ReportService.isValidOrg(x_org_id, orgId):
+            logger.error(f"Invalid organization ID: {orgId}")
+            return jsonify({'error': f'Not authorized to view the report for : {orgId}'}), 401        
         # Parse and validate input parameters
         data = request.get_json()
         if not data:

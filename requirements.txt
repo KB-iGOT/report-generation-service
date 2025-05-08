@@ -9,3 +9,4 @@ google-cloud-bigquery-storage
 pytest
 pytest-cov
 cryptography
+cachetools

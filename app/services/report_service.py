@@ -1,9 +1,11 @@
 import logging
 from app.services.fetch_data_bigQuery import BigQueryService
-from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE,MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED
+from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE,MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_SIZE, MAX_ORG_CACHE_AGE
 import gc
 import pandas as pd
+from cachetools import TTLCache
 
+_mdo_org_cache = TTLCache(maxsize=MAX_ORG_CACHE_SIZE, ttl=MAX_ORG_CACHE_AGE)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,6 +18,11 @@ class ReportService:
     @staticmethod
     def fetch_user_cumulative_report(email=None, phone=None, ehrms_id=None, start_date=None, end_date=None, orgId=None, required_columns=None):
         try:
+            # Check if any user filter is provided
+            if not any([email, phone, ehrms_id]):
+                ReportService.logger.info("No user filters provided for fetching user data.")
+                return None
+
             bigquery_service = BigQueryService()
 
             # Build filters for user details
@@ -28,7 +35,7 @@ class ReportService:
                 user_filters.append(f"external_system_id = '{ehrms_id}'")
 
             if not user_filters:
-                ReportService.logger.info("No filters provided for fetching user data.")
+                ReportService.logger.info("No valid filters provided for fetching user data.")
                 return None
 
             # Construct the query for fetching user data
@@ -48,7 +55,19 @@ class ReportService:
 
             user_ids = user_df["user_id"].tolist()
             ReportService.logger.info(f"Fetched {len(user_ids)} users.")
-
+            
+            # Get the user's MDO ID
+            user_mdo_id = user_df["mdo_id"].iloc[0]  # Get the first user's MDO ID
+            
+            # Check if organization ID is valid
+            if orgId and orgId != user_mdo_id:
+                mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, orgId)
+                mdo_id_org_list.append(orgId)  # Include the orgId itself
+                
+                if user_mdo_id not in mdo_id_org_list:
+                    ReportService.logger.error(f"Invalid organization ID for user: {orgId}")
+                    raise ValueError(f"Invalid organization ID for user: {orgId}")
+            
             # Construct the query for fetching enrollment data
             enrollment_query = f"""
                 SELECT *
@@ -98,7 +117,7 @@ class ReportService:
             raise
         except Exception as e:
             ReportService.logger.error(f"Error generating cumulative report: {e}")
-            return None
+            raise
 
     @staticmethod
     def fetch_master_enrolments_data(start_date, end_date, mdo_id, is_full_report_required, required_columns):
@@ -249,6 +268,10 @@ class ReportService:
 
     @staticmethod
     def _get_mdo_id_org_list(bigquery_service: BigQueryService, mdo_id: str) -> list:
+        if mdo_id in _mdo_org_cache:
+            ReportService.logger.info(f"Cache hit for mdo_id: {mdo_id}")
+            return _mdo_org_cache[mdo_id]
+        ReportService.logger.info(f"Cache miss for mdo_id: {mdo_id}. Fetching from BigQuery.")
         org_hierarchy_query = f"""
             DECLARE input_id STRING;
             SET input_id = '{mdo_id}';
@@ -287,4 +310,33 @@ class ReportService:
         hierarchy_df = bigquery_service.run_query(org_hierarchy_query)
         mdo_id_org_list = hierarchy_df["organisation_id"].tolist()
 
+        _mdo_org_cache[mdo_id] = mdo_id_org_list
         return mdo_id_org_list
+
+    @staticmethod
+    def isValidOrg(x_org_id, request_org_id):
+        try:
+            # Check for None or empty request_org_id
+            if not request_org_id:
+                ReportService.logger.error("request_org_id is None or empty")
+                return False
+
+            # Ensure x_org_id is valid
+            if not x_org_id:
+                ReportService.logger.error("x_org_id is None or empty")
+                return False
+
+            bigquery_service = BigQueryService()
+
+            # Fetch the organization list using _get_mdo_id_org_list
+            org_list = ReportService._get_mdo_id_org_list(bigquery_service, x_org_id)
+            org_list.append(x_org_id)  # Add input mdo_id to the list
+
+            # Check if request_org_id is in the organization list
+            is_valid = request_org_id in org_list
+            ReportService.logger.info(f"Validation result for org_id {request_org_id}: {is_valid}")
+            return is_valid
+
+        except Exception as e:
+            ReportService.logger.error(f"Error fetching mdo_list_data: {e}")
+            return False
