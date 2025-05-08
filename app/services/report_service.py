@@ -334,12 +334,12 @@ class ReportService:
             # Fetch the organization list using _get_mdo_id_org_list
             org_list = ReportService._get_mdo_id_org_list(bigquery_service, x_org_id)
             org_list.append(str(x_org_id))  # Add input mdo_id to the list
-
+            ReportService.logger.info(f"The OrgId list for {request_org_id}: {len(org_list)}")
             # Check if request_org_id is in the organization list
             is_valid = str(request_org_id) in org_list
             ReportService.logger.info(f"Validation result for org_id {request_org_id}: {is_valid}")
             return is_valid
 
         except Exception as e:
-            ReportService.logger.error(f"Error fetching mdo_list_data: {e}")
+            ReportService.logger.error(f"Error fetching mdo_list_data: {e}", exc_info=True)
             return False
