@@ -335,7 +335,7 @@ class ReportService:
             org_list.append(x_org_id)  # Add input mdo_id to the list
 
             # Check if request_org_id is in the organization list
-            is_valid = request_org_id in org_list
+            is_valid = str(request_org_id) in org_list
             ReportService.logger.info(f"Validation result for org_id {request_org_id}: {is_valid}")
             return is_valid
 
