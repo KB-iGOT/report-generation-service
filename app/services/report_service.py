@@ -133,7 +133,7 @@ class ReportService:
                 mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, mdo_id)
                 mdo_id_org_list.append(mdo_id)  # Add input mdo_id to the list
 
-                ReportService.logger.info(f"Fetched {len(mdo_id_org_list)} MDO IDs (including input): {mdo_id_org_list}")
+                ReportService.logger.debug(f"Fetched {len(mdo_id_org_list)} MDO IDs (including input): {mdo_id_org_list}")
             else:
                 mdo_id_org_list = [mdo_id]
                 ReportService.logger.info(f"Full report not required. Using single mdo_id: {mdo_id}")
@@ -337,7 +337,7 @@ class ReportService:
             ReportService.logger.info(f"The OrgId list for {request_org_id}: {len(org_list)}")
             # Check if request_org_id is in the organization list
             is_valid = request_org_id in org_list
-            ReportService.logger.info(f"Validation result for org_id {request_org_id}: {is_valid}")
+            ReportService.logger.debug(f"Validation result for org_id {request_org_id}: {is_valid}")
             return is_valid
 
         except Exception as e:
