@@ -12,8 +12,11 @@ def app():
     """Create a Flask test app with the report_controller blueprint registered."""
     app = Flask(__name__)
     app.config['TESTING'] = True
-    # noqa: S5142  # Safe: CSRF disabled only for testing
-    app.config['WTF_CSRF_ENABLED'] = False
+    
+    # Properly suppress SonarQube warning with NOSONAR or S5142 exclusion
+    # nosec S5142 # NOSONAR: CSRF disabled intentionally for testing only
+    app.config['WTF_CSRF_ENABLED'] = False  # nosec B506
+    
     csrf = CSRFProtect()
     csrf.init_app(app)
     app.register_blueprint(report_controller_v2)
