@@ -2,6 +2,7 @@ import pytest
 import json
 from unittest.mock import patch
 from flask import Flask
+from flask_wtf.csrf import CSRFProtect
 from app.controllers.report_controller_v2 import report_controller_v2
 
 # Using fixtures from conftest.py
@@ -10,8 +11,11 @@ from app.controllers.report_controller_v2 import report_controller_v2
 def app():
     """Create a Flask test app with the report_controller blueprint registered."""
     app = Flask(__name__)
-    app.register_blueprint(report_controller_v2)
     app.config['TESTING'] = True
+    app.config['WTF_CSRF_ENABLED'] = False
+    csrf = CSRFProtect()
+    csrf.init_app(app)
+    app.register_blueprint(report_controller_v2)
     return app
 
 
