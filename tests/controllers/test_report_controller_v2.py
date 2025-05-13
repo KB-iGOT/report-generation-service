@@ -11,10 +11,9 @@ from app.controllers.report_controller_v2 import report_controller_v2
 def app():
     """Create a Flask test app with the report_controller blueprint registered."""
     app = Flask(__name__)
-    app.config['WTF_CSRF_ENABLED'] = False
-    app.register_blueprint(report_controller_v2)
     csrf = CSRFProtect()
     csrf.init_app(app) # Compliant
+    app.register_blueprint(report_controller_v2)
     return app
 
 
