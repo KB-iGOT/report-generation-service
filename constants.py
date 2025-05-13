@@ -1,4 +1,5 @@
 import os
+import json
 
 DEFAULT_TABLE_NAME = os.environ.get('DEFAULT_TABLE_NAME', 'wf_status')
 USER_DETAILS_TABLE = os.environ.get('USER_DETAILS_TABLE', 'user_detail')
@@ -30,4 +31,34 @@ MERGE_KEYS_MASTER_USER_ENROLMENTS=os.environ.get("MERGE_KEYS_MASTER_USER_ENROLME
 MERGE_KEYS_MASTER_ORG_HIERARCHY_DATA=os.environ.get("MERGE_KEYS_MASTER_ORG_HIERARCHY_DATA","table")
 X_ORG_ID = 'x_org_id'
 MAX_ORG_CACHE_SIZE = os.environ.get("MAX_ORG_CACHE_SIZE", 1000)
-MAX_ORG_CACHE_AGE = os.environ.get("MAX_ORG_CACHE_AGE", 14400) 
+MAX_ORG_CACHE_AGE = os.environ.get("MAX_ORG_CACHE_AGE", 14400)
+ENROLMENT_FILTER_CONFIG = json.loads(os.environ.get("ENROLMENT_FILTER_CONFIG", """
+{
+    "content_id": {"type": "string"},
+    "mdo_id_list": {"type": "list"},
+    "user_id": {"type": "list"},
+    "content_progress_percentage": {"type": "comparison", "valid_operators": [">", "<", ">=", "<=", "="]},
+    "certificate_generated": {"type": "boolean", "values": {"Yes": true, "No": false, "true": true, "false": false}}
+}
+"""))
+
+USER_FILTER_CONFIG = json.loads(os.environ.get("USER_FILTER_CONFIG", """
+{
+    "mdo_id_list": {"type": "list"},
+    "role": {"type": "string"},
+    "status": {"type": "string", "values": ["Active", "Inactive"]},
+    "user_registration_date": {"type": "comparison", "valid_operators": [">", "<", ">=", "<=", "="]},
+    "email_verified": {"type": "boolean", "values": {"Yes": true, "No": false, "true": true, "false": false}}
+}
+"""))
+
+USER_REPORT_FILTER_CONFIG = json.loads(os.environ.get("USER_REPORT_FILTER_CONFIG", """
+{
+    "content_id": {"type": "string"},
+    "content_type": {"type": "string"},
+    "content_status": {"type": "string", "values": ["Completed", "In Progress", "Not Started"]},
+    "certificate_generated": {"type": "boolean", "values": {"Yes": true, "No": false, "true": true, "false": false}},
+    "content_progress_percentage": {"type": "comparison", "valid_operators": [">", "<", ">=", "<=", "="]}
+}
+"""))
+ 
