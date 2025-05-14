@@ -8,6 +8,7 @@ import pandas as pd
 from cachetools import TTLCache
 from app.services.report_service import ReportService
 
+# Configure logging for the service. This configuration is safe as it is scoped to this module.
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
