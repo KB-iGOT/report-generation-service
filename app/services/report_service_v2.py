@@ -23,19 +23,22 @@ class ReportServiceV2:
         for filter_name, filter_value in filters.items():
             if filter_name in filter_config:
                 filter_config_item = filter_config[filter_name]
-                
+
+                # Escape reserved keywords
+                escaped_filter_name = f"`{filter_name}`" if filter_name.lower() in ['groups', 'order', 'limit'] else filter_name
+
                 # Skip already processed filters
                 if filter_name == 'mdo_id_list':
                     continue
-                
+
                 # Process based on filter type
                 if filter_config_item['type'] == 'string' and filter_value:
-                    where_clause_parts.append(f"{filter_name} = '{filter_value}'")
-                
+                    where_clause_parts.append(f"{escaped_filter_name} = '{filter_value}'")
+
                 elif filter_config_item['type'] == 'list' and isinstance(filter_value, list) and filter_value:
                     values_str = ', '.join([f"'{val}'" for val in filter_value])
-                    where_clause_parts.append(f"{filter_name} IN ({values_str})")
-                
+                    where_clause_parts.append(f"{escaped_filter_name} IN ({values_str})")
+
                 elif filter_config_item['type'] == 'comparison' and filter_value:
                     # Parse comparison operator and value
                     filter_str = str(filter_value).strip()
@@ -45,17 +48,17 @@ class ReportServiceV2:
                             try:
                                 # Ensure value is numeric
                                 float_value = float(value)
-                                where_clause_parts.append(f"{filter_name} {operator} {float_value}")
+                                where_clause_parts.append(f"{escaped_filter_name} {operator} {float_value}")
                                 break
                             except ValueError:
                                 ReportServiceV2.logger.warning(f"Invalid numeric value for {filter_name}: {value}")
-                
+
                 elif filter_config_item['type'] == 'boolean' and filter_value is not None:
                     # Convert to boolean value
                     if filter_value in filter_config_item['values']:
                         bool_value = filter_config_item['values'][filter_value]
                         bool_str = "TRUE" if bool_value else "FALSE"
-                        where_clause_parts.append(f"{filter_name} = {bool_str}")
+                        where_clause_parts.append(f"{escaped_filter_name} = {bool_str}")
         
         return where_clause_parts
 
@@ -91,6 +94,16 @@ class ReportServiceV2:
             if mdo_id_list and isinstance(mdo_id_list, list) and len(mdo_id_list) > 0:
                 # If specific MDO IDs are provided, use those
                 ReportServiceV2.logger.info(f"Using provided MDO ID list: {mdo_id_list}")
+                
+                # Fetch the valid MDO IDs from the hierarchy
+                mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, org_id)
+                
+                # Filter out invalid MDO IDs
+                mdo_id_list = [mid for mid in mdo_id_list if mid in mdo_id_org_list]
+                if org_id not in mdo_id_list:
+                    mdo_id_list.append(org_id)
+                ReportServiceV2.logger.info(f"Filtered MDO ID list: {mdo_id_list}")
+                
                 mdo_ids_to_use = [f"'{mid}'" for mid in mdo_id_list]
             else:
                 # Otherwise use the standard logic based on is_full_report_required
@@ -321,6 +334,14 @@ class ReportServiceV2:
             if mdo_id_list and isinstance(mdo_id_list, list) and len(mdo_id_list) > 0:
                 # If specific MDO IDs are provided, use those
                 ReportServiceV2.logger.info(f"Using provided MDO ID list: {mdo_id_list}")
+                # Fetch the valid MDO IDs from the hierarchy
+                mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, mdo_id)
+                
+                # Filter out invalid MDO IDs
+                mdo_id_list = [mid for mid in mdo_id_list if mid in mdo_id_org_list]
+                ReportServiceV2.logger.info(f"Filtered MDO ID list: {mdo_id_list}")
+                if mdo_id not in mdo_id_list:
+                    mdo_id_list.append(mdo_id)
                 mdo_ids_to_use = [f"'{mid}'" for mid in mdo_id_list]
             else:
                 # Otherwise use the standard logic based on is_full_report_required

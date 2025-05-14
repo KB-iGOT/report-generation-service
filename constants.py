@@ -38,27 +38,29 @@ ENROLMENT_FILTER_CONFIG = json.loads(os.environ.get("ENROLMENT_FILTER_CONFIG", "
     "mdo_id_list": {"type": "list"},
     "user_id": {"type": "list"},
     "content_progress_percentage": {"type": "comparison", "valid_operators": [">", "<", ">=", "<=", "="]},
-    "certificate_generated": {"type": "boolean", "values": {"Yes": true, "No": false, "true": true, "false": false}}
+    "certificate_generated": {"type": "string", "values": ["Yes","No"]}
 }
 """))
 
 USER_FILTER_CONFIG = json.loads(os.environ.get("USER_FILTER_CONFIG", """
 {
     "mdo_id_list": {"type": "list"},
-    "role": {"type": "string"},
     "status": {"type": "string", "values": ["Active", "Inactive"]},
     "user_registration_date": {"type": "comparison", "valid_operators": [">", "<", ">=", "<=", "="]},
-    "email_verified": {"type": "boolean", "values": {"Yes": true, "No": false, "true": true, "false": false}}
+    "is_verified_karmayogi": {"type": "boolean", "values": {"True": true, "False": false}},
+    "groups": {"type": "list"},
+    "user_id": {"type": "list"},
+    "designation": {"type": "list"}
 }
 """))
 
 USER_REPORT_FILTER_CONFIG = json.loads(os.environ.get("USER_REPORT_FILTER_CONFIG", """
 {
     "content_id": {"type": "string"},
-    "content_type": {"type": "string"},
-    "content_status": {"type": "string", "values": ["Completed", "In Progress", "Not Started"]},
-    "certificate_generated": {"type": "boolean", "values": {"Yes": true, "No": false, "true": true, "false": false}},
-    "content_progress_percentage": {"type": "comparison", "valid_operators": [">", "<", ">=", "<=", "="]}
+    "mdo_id_list": {"type": "list"},
+    "user_id": {"type": "list"},
+    "content_progress_percentage": {"type": "comparison", "valid_operators": [">", "<", ">=", "<=", "="]},
+    "certificate_generated": {"type": "string", "values": ["Yes","No"]}
 }
 """))
  

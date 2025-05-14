@@ -53,7 +53,7 @@ def test_generate_report_with_additional_filters(mock_get_mdo_id_org_list, mock_
         'content_progress_percentage': [80, 90],
         'mdo_id': ['org1', 'org1'],
         'content_id': ['content1', 'content2'],
-        'certificate_generated': [True, False]
+        'certificate_generated': ['Yes', 'No']
     })
     
     # Configure mock to return our test dataframe
@@ -93,7 +93,7 @@ def test_generate_report_with_additional_filters(mock_get_mdo_id_org_list, mock_
         assert f"enrolled_on BETWEEN '{start_date}' AND '{end_date}'" in query
         assert "content_id = 'content1'" in query
         assert "content_progress_percentage > 50" in query
-        assert "certificate_generated = TRUE" in query
+        assert "certificate_generated = 'Yes'" in query
         
         # Clean up the generator to avoid ResourceWarning
         for _ in result:
@@ -103,38 +103,38 @@ def test_generate_report_with_additional_filters(mock_get_mdo_id_org_list, mock_
 def test_generate_report_with_mdo_id_list(mock_get_mdo_id_org_list, mock_bigquery_service):
     """Test report generation with specific MDO ID list."""
     # Setup
-    mock_get_mdo_id_org_list.return_value = ['org1']
+    mock_get_mdo_id_org_list.return_value = ['mdo1', 'mdo2', 'mdo3']  # Valid MDO IDs in the hierarchy
     enrollment_df = pd.DataFrame({
         'user_id': ['user1', 'user2'],
         'course_id': ['course1', 'course2'],
         'mdo_id': ['mdo1', 'mdo2']
     })
-    
+
     # Configure mock to return our test dataframe
     mock_bigquery_service.run_query.return_value = enrollment_df
-    
+
     # Execute
     additional_filters = {
-        'mdo_id_list': ['mdo1', 'mdo2']
+        'mdo_id_list': ['mdo1', 'mdo2', 'invalid_mdo']  # Includes an invalid MDO ID
     }
-    
+
     with patch('app.services.report_service_v2.pd.DataFrame.drop'):
         result = ReportServiceV2.generate_report(
             start_date=None,
             end_date=None,
-            org_id='org1',  # This should be ignored since mdo_id_list is provided
+            org_id='mdo1',  # Valid org_id
             is_full_report_required=True,  # This should be ignored since mdo_id_list is provided
             additional_filters=additional_filters
         )
-        
+
         # Verify
         assert result is not None
-        
+
         # Check that the query was executed with the specific MDO IDs
         mock_bigquery_service.run_query.assert_called_once()
         query = mock_bigquery_service.run_query.call_args[0][0]
-        assert "mdo_id in ('mdo1', 'mdo2')" in query
-        
+        assert "mdo_id in ('mdo1', 'mdo2')" in query  # Ensure only valid MDO IDs are included
+
         # Clean up the generator to avoid ResourceWarning
         for _ in result:
             pass
@@ -153,7 +153,7 @@ def test_generate_user_report_with_filters(mock_get_mdo_id_org_list, mock_bigque
         'user_id': ['user1'],
         'content_id': ['content1'],
         'content_progress_percentage': [80],
-        'certificate_generated': [True]
+        'certificate_generated': ['No']
     })
     
     # Configure mock to return our test dataframes
@@ -192,7 +192,7 @@ def test_generate_user_report_with_filters(mock_get_mdo_id_org_list, mock_bigque
     assert "user_id IN ('user1')" in enrollment_query
     assert "content_id = 'content1'" in enrollment_query
     assert "content_progress_percentage >= 75" in enrollment_query
-    assert "certificate_generated = TRUE" in enrollment_query
+    assert "certificate_generated = 'Yes'" in enrollment_query
     
     # Clean up the generator to avoid ResourceWarning
     for _ in result:
@@ -206,7 +206,6 @@ def test_generate_org_user_report_with_filters(mock_get_mdo_id_org_list, mock_bi
     user_df = pd.DataFrame({
         'user_id': ['user1', 'user2'],
         'email': ['user1@example.com', 'user2@example.com'],
-        'role': ['admin', 'user'],
         'status': ['Active', 'Inactive'],
         'mdo_id': ['org1', 'org1']
     })
@@ -216,15 +215,13 @@ def test_generate_org_user_report_with_filters(mock_get_mdo_id_org_list, mock_bi
     
     # Execute
     additional_filters = {
-        'role': 'admin',
-        'status': 'Active',
-        'email_verified': 'Yes'
+        'status': 'Active'
     }
     
     result = ReportServiceV2.generate_org_user_report(
         mdo_id='org1',
         is_full_report_required=False,
-        required_columns=['user_id', 'email', 'role', 'status'],
+        required_columns=['user_id', 'email', 'status'],
         user_creation_start_date=datetime(2023, 1, 1),
         user_creation_end_date=datetime(2023, 1, 31),
         additional_filters=additional_filters
@@ -235,16 +232,14 @@ def test_generate_org_user_report_with_filters(mock_get_mdo_id_org_list, mock_bi
     
     # Check first item in generator is the header
     header = next(result)
-    assert 'user_id|email|role|status' in header
+    assert 'user_id|email|status' in header
     
     # Check that the query was executed with correct parameters
     mock_bigquery_service.run_query.assert_called_once()
     query = mock_bigquery_service.run_query.call_args[0][0]
     assert "user_registration_date BETWEEN" in query
     assert "mdo_id in ('org1')" in query
-    assert "role = 'admin'" in query
     assert "status = 'Active'" in query
-    assert "email_verified = TRUE" in query
     
     # Clean up the generator to avoid ResourceWarning
     for _ in result:
@@ -505,3 +500,43 @@ def test_generate_user_report_with_no_filters(mock_get_mdo_id_org_list, mock_big
     # Verify
     assert result is None
     mock_bigquery_service.run_query.assert_not_called()
+
+@patch('app.services.report_service.ReportService._get_mdo_id_org_list')
+def test_generate_report_with_updated_mdo_id_list_logic(mock_get_mdo_id_org_list, mock_bigquery_service):
+    """Test report generation with updated MDO ID list logic."""
+    # Setup
+    mock_get_mdo_id_org_list.return_value = ['org1', 'org2']
+    enrollment_df = pd.DataFrame({
+        'user_id': ['user1', 'user2'],
+        'course_id': ['course1', 'course2'],
+        'mdo_id': ['org1', 'org2']
+    })
+
+    # Configure mock to return our test dataframe
+    mock_bigquery_service.run_query.return_value = enrollment_df
+
+    # Execute
+    additional_filters = {
+        'mdo_id_list': ['org1', 'org3']  # org3 is not valid and should be filtered out
+    }
+
+    with patch('app.services.report_service_v2.pd.DataFrame.drop'):
+        result = ReportServiceV2.generate_report(
+            start_date=None,
+            end_date=None,
+            org_id='org1',
+            is_full_report_required=True,
+            additional_filters=additional_filters
+        )
+
+        # Verify
+        assert result is not None
+
+        # Check that the query was executed with the filtered MDO IDs
+        mock_bigquery_service.run_query.assert_called_once()
+        query = mock_bigquery_service.run_query.call_args[0][0]
+        assert "mdo_id in ('org1')" in query  # org3 should not be included
+
+        # Clean up the generator to avoid ResourceWarning
+        for _ in result:
+            pass
