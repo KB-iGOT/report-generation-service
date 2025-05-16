@@ -34,18 +34,28 @@ class ReportServiceV2:
 
                 # Process based on filter type
                 if filter_config_item['type'] == 'string' and filter_value:
-                    where_clause_parts.append(f"{escaped_filter_name} = '{filter_value}'")
+                    if 'values' in filter_config_item:
+                        if isinstance(filter_config_item['values'], dict):
+                            # Map the filter value using the dictionary
+                            if filter_value in filter_config_item['values']:
+                                mapped_value = filter_config_item['values'][filter_value]
+                                if isinstance(mapped_value, int):
+                                    where_clause_parts.append(f"{escaped_filter_name} = {mapped_value}")
+                                else:
+                                    where_clause_parts.append(f"{escaped_filter_name} = '{mapped_value}'")
+                        else:
+                            where_clause_parts.append(f"{escaped_filter_name} IN ({', '.join(map(str, filter_config_item['values']))})")
+                    else:
+                        where_clause_parts.append(f"{escaped_filter_name} = '{filter_value}'")
 
                 elif filter_config_item['type'] == 'list' and isinstance(filter_value, list) and filter_value:
                     values_str = ', '.join([f"'{val}'" for val in filter_value])
                     where_clause_parts.append(f"{escaped_filter_name} IN ({values_str})")
 
                 elif filter_config_item['type'] == 'comparison' and filter_value:
-                    # Parse comparison operator and value
-                    filter_str = str(filter_value).strip()
-                    for operator in filter_config_item['valid_operators']:
-                        if filter_str.startswith(operator):
-                            value = filter_str[len(operator):].strip()
+                    for operator in filter_config_item.get('valid_operators', []):
+                        if filter_value.startswith(operator):
+                            value = filter_value[len(operator):].strip()
                             try:
                                 # Ensure value is numeric
                                 float_value = float(value)
@@ -56,11 +66,11 @@ class ReportServiceV2:
 
                 elif filter_config_item['type'] == 'boolean' and filter_value is not None:
                     # Convert to boolean value
-                    if filter_value in filter_config_item['values']:
+                    if 'values' in filter_config_item and filter_value in filter_config_item['values']:
                         bool_value = filter_config_item['values'][filter_value]
                         bool_str = "TRUE" if bool_value else "FALSE"
                         where_clause_parts.append(f"{escaped_filter_name} = {bool_str}")
-        
+
         return where_clause_parts
 
     @staticmethod
@@ -97,7 +107,7 @@ class ReportServiceV2:
                 ReportServiceV2.logger.info(f"Using provided MDO ID list: {mdo_id_list}")
                 
                 # Fetch the valid MDO IDs from the hierarchy
-                mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, org_id)
+                mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, org_id))
                 
                 # Filter out invalid MDO IDs
                 mdo_id_list = [mid for mid in mdo_id_list if mid in mdo_id_org_list]
@@ -110,7 +120,7 @@ class ReportServiceV2:
                 # Otherwise use the standard logic based on is_full_report_required
                 if is_full_report_required:
                     # Dynamically fetch orgs using hierarchy
-                    mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, org_id)
+                    mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, org_id))
                     mdo_id_org_list.append(org_id)  # Add input mdo_id to the list
                     ReportServiceV2.logger.debug(f"Fetched {len(mdo_id_org_list)} MDO IDs (including input): {mdo_id_org_list}")
                 else:
@@ -233,7 +243,7 @@ class ReportServiceV2:
             
             # Check if organization ID is valid
             if orgId and orgId != user_mdo_id:
-                mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, orgId)
+                mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, orgId))
                 mdo_id_org_list.append(orgId)  # Include the orgId itself
                 
                 if user_mdo_id not in mdo_id_org_list:
@@ -336,7 +346,7 @@ class ReportServiceV2:
                 # If specific MDO IDs are provided, use those
                 ReportServiceV2.logger.info(f"Using provided MDO ID list: {mdo_id_list}")
                 # Fetch the valid MDO IDs from the hierarchy
-                mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, mdo_id)
+                mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, mdo_id))
                 
                 # Filter out invalid MDO IDs
                 mdo_id_list = [mid for mid in mdo_id_list if mid in mdo_id_org_list]
@@ -348,8 +358,8 @@ class ReportServiceV2:
                 # Otherwise use the standard logic based on is_full_report_required
                 if is_full_report_required:
                     # Dynamically fetch orgs using hierarchy
-                    mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, mdo_id)
-                    mdo_id_org_list.append(mdo_id)  # Add input mdo_id to the list
+                    mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, mdo_id))
+                    mdo_id_org_list.append(mdo_id)  # Add input mdo_id to the set
                     ReportServiceV2.logger.debug(f"Fetched {len(mdo_id_org_list)} MDO IDs (including input): {mdo_id_org_list}")
                 else:
                     mdo_id_org_list = [mdo_id]
@@ -359,6 +369,9 @@ class ReportServiceV2:
             
             mdo_id_str = ', '.join(mdo_ids_to_use)
             where_clause_parts.append(f"mdo_id in ({mdo_id_str})")
+            
+            if user_creation_start_date and user_creation_end_date and additional_filters:
+                additional_filters = {key: value for key, value in additional_filters.items() if not key.startswith("user_registration_date")}
             
             # Process additional filters
             where_clause_parts = ReportServiceV2._process_filters(additional_filters, USER_FILTER_CONFIG, where_clause_parts)

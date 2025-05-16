@@ -61,7 +61,7 @@ class ReportService:
             
             # Check if organization ID is valid
             if orgId and orgId != user_mdo_id:
-                mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, orgId)
+                mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, orgId))
                 mdo_id_org_list.append(orgId)  # Include the orgId itself
                 
                 if user_mdo_id not in mdo_id_org_list:
@@ -130,7 +130,7 @@ class ReportService:
                 date_filter = f" AND enrolled_on BETWEEN '{start_date}' AND '{end_date}'"
             if is_full_report_required:
                 # Dynamically fetch orgs using hierarchy
-                mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, mdo_id)
+                mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, mdo_id))
                 mdo_id_org_list.append(mdo_id)  # Add input mdo_id to the list
 
                 ReportService.logger.debug(f"Fetched {len(mdo_id_org_list)} MDO IDs (including input): {mdo_id_org_list}")
@@ -192,7 +192,7 @@ class ReportService:
             if user_creation_start_date and user_creation_end_date:
                 date_filter = f" AND user_registration_date BETWEEN '{user_creation_start_date}' AND '{user_creation_end_date}'"
             if is_full_report_required:
-                mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, mdo_id)
+                mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, mdo_id))
                 mdo_id_org_list.append(mdo_id) 
             else: 
                 mdo_id_org_list = [mdo_id]   
@@ -310,7 +310,7 @@ class ReportService:
         hierarchy_df = bigquery_service.run_query(org_hierarchy_query)
 
         # Ensure all IDs are strings
-        mdo_id_org_list = hierarchy_df["organisation_id"].tolist()
+        mdo_id_org_list = tuple(hierarchy_df["organisation_id"].tolist())
 
         _mdo_org_cache[mdo_id] = mdo_id_org_list
         return mdo_id_org_list
@@ -332,7 +332,7 @@ class ReportService:
             bigquery_service = BigQueryService()
 
             # Fetch the organization list using _get_mdo_id_org_list
-            org_list = ReportService._get_mdo_id_org_list(bigquery_service, x_org_id)
+            org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, x_org_id))
             org_list.append(x_org_id)  # Add input mdo_id to the list
             ReportService.logger.info(f"The OrgId list for {request_org_id}: {len(org_list)}")
             # Check if request_org_id is in the organization list

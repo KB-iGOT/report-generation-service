@@ -476,7 +476,7 @@ def test_get_mdo_id_org_list(mock_bigquery_service):
     mock_bigquery_service.run_query.return_value = hierarchy_df
     
     # Execute
-    result = ReportService._get_mdo_id_org_list(mock_bigquery_service, 'org1')
+    result = list(ReportService._get_mdo_id_org_list(mock_bigquery_service, 'org1'))
     
     # Verify
     assert result == ['org2', 'org3', 'org4']
