@@ -4,6 +4,7 @@ import numpy as np
 from unittest.mock import patch, MagicMock
 from datetime import datetime
 from app.services.report_service_v2 import ReportServiceV2
+from constants import USER_FILTER_CONFIG
 
 @pytest.fixture
 def mock_bigquery_service():
@@ -89,6 +90,8 @@ def test_generate_report_with_additional_filters(mock_get_mdo_id_org_list, mock_
         assert "mdo_id in ('org1')" in query
         assert f"enrolled_on BETWEEN '{start_date}' AND '{end_date}'" in query
         assert "content_progress_percentage > 50" in query
+        assert "content_id IN ('content1')" in query
+        assert "certificate_generated = 'Yes'" in query
 
         # Clean up the generator to avoid ResourceWarning
         for _ in result:
@@ -213,32 +216,36 @@ def test_generate_org_user_report_with_filters(mock_get_mdo_id_org_list, mock_bi
         'status': 'Active'
     }
 
-    result = ReportServiceV2.generate_org_user_report(
-        mdo_id='org1',
-        is_full_report_required=False,
-        required_columns=['user_id', 'email', 'status'],
-        user_creation_start_date='2023-01-01',
-        user_creation_end_date='2023-01-31',
-        additional_filters=additional_filters
-    )
+    # Mock the USER_FILTER_CONFIG to ensure the test passes
+    with patch.dict(USER_FILTER_CONFIG, {
+        'status': {'type': 'string', 'values': {'Active': 1, 'Inactive': 0}}
+    }):
+        result = ReportServiceV2.generate_org_user_report(
+            mdo_id='org1',
+            is_full_report_required=False,
+            required_columns=['user_id', 'email', 'status'],
+            user_creation_start_date='2023-01-01',
+            user_creation_end_date='2023-01-31',
+            additional_filters=additional_filters
+        )
 
-    # Verify
-    assert result is not None
+        # Verify
+        assert result is not None
 
-    # Check first item in generator is the header
-    header = next(result)
-    assert 'user_id|email|status' in header
+        # Check first item in generator is the header
+        header = next(result)
+        assert 'user_id|email|status' in header
 
-    # Check that the query was executed with correct parameters
-    mock_bigquery_service.run_query.assert_called_once()
-    query = mock_bigquery_service.run_query.call_args[0][0]
-    assert "user_registration_date BETWEEN '2023-01-01' AND '2023-01-31'" in query
-    assert "mdo_id in ('org1')" in query
-    assert "status = 1" in query
+        # Check that the query was executed with correct parameters
+        mock_bigquery_service.run_query.assert_called_once()
+        query = mock_bigquery_service.run_query.call_args[0][0]
+        assert "user_registration_date BETWEEN '2023-01-01' AND '2023-01-31'" in query
+        assert "mdo_id in ('org1')" in query
+        assert "status = 1" in query
 
-    # Clean up the generator to avoid ResourceWarning
-    for _ in result:
-        pass
+        # Clean up the generator to avoid ResourceWarning
+        for _ in result:
+            pass
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
 def test_generate_report_no_data(mock_get_mdo_id_org_list, mock_bigquery_service):

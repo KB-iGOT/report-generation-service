@@ -1,11 +1,11 @@
 import logging
 from app.services.fetch_data_bigQuery import BigQueryService
+from app.services.redis_service import RedisService
 from constants import (MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE, 
-                      IS_MASKING_ENABLED,
+                      IS_MASKING_ENABLED, MAX_ORG_CACHE_AGE,
                       ENROLMENT_FILTER_CONFIG, USER_FILTER_CONFIG, USER_REPORT_FILTER_CONFIG)
 import gc
 import pandas as pd
-from cachetools import TTLCache
 from app.services.report_service import ReportService
 
 # Configure logging for the service. This configuration is safe as it is scoped to this module.

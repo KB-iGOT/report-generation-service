@@ -1,11 +1,9 @@
 import logging
 from app.services.fetch_data_bigQuery import BigQueryService
-from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE,MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_SIZE, MAX_ORG_CACHE_AGE
+from app.services.redis_service import RedisService
+from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE, MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_AGE
 import gc
 import pandas as pd
-from cachetools import TTLCache
-
-_mdo_org_cache = TTLCache(maxsize=int(MAX_ORG_CACHE_SIZE), ttl=int(MAX_ORG_CACHE_AGE))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -268,9 +266,14 @@ class ReportService:
 
     @staticmethod
     def _get_mdo_id_org_list(bigquery_service: BigQueryService, mdo_id: str) -> list:
-        if mdo_id in _mdo_org_cache:
+        redis_service = RedisService()
+        
+        # Try to get from Redis cache
+        cached_value = redis_service.get_value(mdo_id)
+        if cached_value is not None:
             ReportService.logger.info(f"Cache hit for mdo_id: {mdo_id}")
-            return _mdo_org_cache[mdo_id]
+            return cached_value
+            
         ReportService.logger.info(f"Cache miss for mdo_id: {mdo_id}. Fetching from BigQuery.")
         org_hierarchy_query = f"""
             DECLARE input_id STRING;
@@ -310,9 +313,11 @@ class ReportService:
         hierarchy_df = bigquery_service.run_query(org_hierarchy_query)
 
         # Ensure all IDs are strings
-        mdo_id_org_list = tuple(hierarchy_df["organisation_id"].tolist())
+        mdo_id_org_list = list(hierarchy_df["organisation_id"].tolist())
 
-        _mdo_org_cache[mdo_id] = mdo_id_org_list
+        # Store in Redis cache
+        redis_service.set_value(mdo_id, mdo_id_org_list, ttl=int(MAX_ORG_CACHE_AGE))
+        
         return mdo_id_org_list
 
     @staticmethod

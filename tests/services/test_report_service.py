@@ -465,9 +465,14 @@ def test_fetch_master_user_data_exception(mock_bigquery_service):
     mock_bigquery_service.run_query.assert_called_once()
 
 
-def test_get_mdo_id_org_list(mock_bigquery_service):
+@patch('app.services.report_service.RedisService')
+def test_get_mdo_id_org_list(mock_redis_service, mock_bigquery_service):
     """Test getting MDO ID organization list."""
     # Setup
+    mock_redis_instance = MagicMock()
+    mock_redis_service.return_value = mock_redis_instance
+    mock_redis_instance.get_value.return_value = None  # Cache miss
+    
     hierarchy_df = pd.DataFrame({
         'organisation_id': ['org2', 'org3', 'org4']
     })
@@ -485,6 +490,7 @@ def test_get_mdo_id_org_list(mock_bigquery_service):
     # Check that the query includes the correct MDO ID
     query = mock_bigquery_service.run_query.call_args[0][0]
     assert "input_id = 'org1'" in query
+
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
 def test_isValidOrg_success(mock_get_mdo_list, mock_bigquery_service):
