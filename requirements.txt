@@ -10,3 +10,5 @@ pytest
 pytest-cov
 cryptography
 cachetools
+flask-wtf
+redis

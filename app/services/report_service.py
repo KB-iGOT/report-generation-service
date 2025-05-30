@@ -1,11 +1,9 @@
 import logging
 from app.services.fetch_data_bigQuery import BigQueryService
-from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE,MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_SIZE, MAX_ORG_CACHE_AGE
+from app.services.redis_service import RedisService
+from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE, MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_AGE
 import gc
 import pandas as pd
-from cachetools import TTLCache
-
-_mdo_org_cache = TTLCache(maxsize=int(MAX_ORG_CACHE_SIZE), ttl=int(MAX_ORG_CACHE_AGE))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,7 +59,7 @@ class ReportService:
             
             # Check if organization ID is valid
             if orgId and orgId != user_mdo_id:
-                mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, orgId)
+                mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, orgId))
                 mdo_id_org_list.append(orgId)  # Include the orgId itself
                 
                 if user_mdo_id not in mdo_id_org_list:
@@ -130,7 +128,7 @@ class ReportService:
                 date_filter = f" AND enrolled_on BETWEEN '{start_date}' AND '{end_date}'"
             if is_full_report_required:
                 # Dynamically fetch orgs using hierarchy
-                mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, mdo_id)
+                mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, mdo_id))
                 mdo_id_org_list.append(mdo_id)  # Add input mdo_id to the list
 
                 ReportService.logger.debug(f"Fetched {len(mdo_id_org_list)} MDO IDs (including input): {mdo_id_org_list}")
@@ -192,7 +190,7 @@ class ReportService:
             if user_creation_start_date and user_creation_end_date:
                 date_filter = f" AND user_registration_date BETWEEN '{user_creation_start_date}' AND '{user_creation_end_date}'"
             if is_full_report_required:
-                mdo_id_org_list = ReportService._get_mdo_id_org_list(bigquery_service, mdo_id)
+                mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, mdo_id))
                 mdo_id_org_list.append(mdo_id) 
             else: 
                 mdo_id_org_list = [mdo_id]   
@@ -268,9 +266,14 @@ class ReportService:
 
     @staticmethod
     def _get_mdo_id_org_list(bigquery_service: BigQueryService, mdo_id: str) -> list:
-        if mdo_id in _mdo_org_cache:
+        redis_service = RedisService()
+        
+        # Try to get from Redis cache
+        cached_value = redis_service.get_value(mdo_id)
+        if cached_value is not None:
             ReportService.logger.info(f"Cache hit for mdo_id: {mdo_id}")
-            return _mdo_org_cache[mdo_id]
+            return cached_value
+            
         ReportService.logger.info(f"Cache miss for mdo_id: {mdo_id}. Fetching from BigQuery.")
         org_hierarchy_query = f"""
             DECLARE input_id STRING;
@@ -310,9 +313,11 @@ class ReportService:
         hierarchy_df = bigquery_service.run_query(org_hierarchy_query)
 
         # Ensure all IDs are strings
-        mdo_id_org_list = hierarchy_df["organisation_id"].tolist()
+        mdo_id_org_list = list(hierarchy_df["organisation_id"].tolist())
 
-        _mdo_org_cache[mdo_id] = mdo_id_org_list
+        # Store in Redis cache
+        redis_service.set_value(mdo_id, mdo_id_org_list, ttl=int(MAX_ORG_CACHE_AGE))
+        
         return mdo_id_org_list
 
     @staticmethod
@@ -332,7 +337,7 @@ class ReportService:
             bigquery_service = BigQueryService()
 
             # Fetch the organization list using _get_mdo_id_org_list
-            org_list = ReportService._get_mdo_id_org_list(bigquery_service, x_org_id)
+            org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, x_org_id))
             org_list.append(x_org_id)  # Add input mdo_id to the list
             ReportService.logger.info(f"The OrgId list for {request_org_id}: {len(org_list)}")
             # Check if request_org_id is in the organization list
