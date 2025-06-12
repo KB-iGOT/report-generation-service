@@ -1,4 +1,5 @@
 import os
+import json
 
 DEFAULT_TABLE_NAME = os.environ.get('DEFAULT_TABLE_NAME', 'wf_status')
 USER_DETAILS_TABLE = os.environ.get('USER_DETAILS_TABLE', 'user_detail')
@@ -30,4 +31,44 @@ MERGE_KEYS_MASTER_USER_ENROLMENTS=os.environ.get("MERGE_KEYS_MASTER_USER_ENROLME
 MERGE_KEYS_MASTER_ORG_HIERARCHY_DATA=os.environ.get("MERGE_KEYS_MASTER_ORG_HIERARCHY_DATA","table")
 X_ORG_ID = 'x_org_id'
 MAX_ORG_CACHE_SIZE = os.environ.get("MAX_ORG_CACHE_SIZE", 1000)
-MAX_ORG_CACHE_AGE = os.environ.get("MAX_ORG_CACHE_AGE", 14400) 
+MAX_ORG_CACHE_AGE = os.environ.get("MAX_ORG_CACHE_AGE", 14400)
+ENROLMENT_FILTER_CONFIG = json.loads(os.environ.get("ENROLMENT_FILTER_CONFIG", """
+{
+    "content_id": {"type": "list"},
+    "mdo_id_list": {"type": "list"},
+    "user_id": {"type": "list"},
+    "content_progress_percentage": {"type": "comparison", "valid_operators": [">", "<", ">=", "<=", "="]},
+    "certificate_generated": {"type": "string"}
+}
+"""))
+
+USER_FILTER_CONFIG = json.loads(os.environ.get("USER_FILTER_CONFIG", """
+{
+    "mdo_id_list": {"type": "list"},
+    "status": {"type": "string", "values": {"Active": 1, "Inactive": 0}},
+    "user_registration_date": {"type": "comparison", "valid_operators": [">", "<", ">=", "<=", "="]},
+    "is_verified_karmayogi": {"type": "boolean", "values": {"True": true, "False": false}},
+    "groups": {"type": "list"},
+    "user_id": {"type": "list"},
+    "designation": {"type": "list"}
+}
+"""))
+
+USER_REPORT_FILTER_CONFIG = json.loads(os.environ.get("USER_REPORT_FILTER_CONFIG", """
+{
+    "content_id": {"type": "list"},
+    "mdo_id_list": {"type": "list"},
+    "content_progress_percentage": {"type": "comparison", "valid_operators": [">", "<", ">=", "<=", "="]},
+    "certificate_generated": {"type": "string"}
+}
+"""))
+
+# Redis Configuration
+REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
+REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
+REDIS_DB = int(os.environ.get('REDIS_DB', 0))
+REDIS_SSL = os.environ.get('REDIS_SSL', 'False').lower() == 'true'
+REDIS_TIMEOUT = int(os.environ.get('REDIS_TIMEOUT', 5))
+REDIS_KEY_MDO_PREFIX = os.environ.get('REDIS_KEY_MDO_PREFIX', 'igot_mdo_')
+REDIS_DEFAULT_TTL = int(os.environ.get('REDIS_DEFAULT_TTL', 14400))
+ 

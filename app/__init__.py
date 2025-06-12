@@ -38,6 +38,8 @@ def create_app():
     try:
         from app.controllers.report_controller import report_controller
         app.register_blueprint(report_controller)
+        from app.controllers.report_controller_v2 import report_controller_v2
+        app.register_blueprint(report_controller_v2)
         from app.controllers.health_controller import health_controller
         app.register_blueprint(health_controller)
     except Exception as e:
