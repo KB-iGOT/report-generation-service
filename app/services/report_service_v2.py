@@ -53,8 +53,10 @@ class ReportServiceV2:
                     where_clause_parts.append(f"{escaped_filter_name} IN ({values_str})")
 
                 elif filter_config_item['type'] == 'comparison' and filter_value:
+                    matched_operator = None
                     for operator in filter_config_item.get('valid_operators', []):
                         if filter_value.startswith(operator):
+                            matched_operator = operator
                             value = filter_value[len(operator):].strip()
                             try:
                                 # Ensure value is numeric
@@ -63,6 +65,8 @@ class ReportServiceV2:
                                 break
                             except ValueError:
                                 ReportServiceV2.logger.warning(f"Invalid numeric value for {filter_name}: {value}")
+                    if matched_operator is None:
+                        raise ValueError(f"Invalid operator for {filter_name}: '{filter_value}'. Allowed operators: {filter_config_item.get('valid_operators', [])}")
 
                 elif filter_config_item['type'] == 'boolean' and filter_value is not None:
                     # Convert to boolean value
@@ -178,7 +182,7 @@ class ReportServiceV2:
 
         except Exception as e:
             ReportServiceV2.logger.error(f"Error fetching master enrolments data: {e}")
-            return None
+            raise
 
     @staticmethod
     def generate_user_report(email=None, phone=None, ehrms_id=None, start_date=None, end_date=None, orgId=None, required_columns=None, additional_filters=None):

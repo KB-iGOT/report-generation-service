@@ -229,7 +229,7 @@ def test_get_report_invalid_date_format(mock_is_valid_org, client):
     # Verify
     assert response.status_code == 400
     data = json.loads(response.data)
-    assert 'Invalid date format' in data['error']
+    assert 'Invalid Request.' in data['error']
 
 
 @patch("app.services.report_service.ReportService.isValidOrg")
@@ -275,7 +275,7 @@ def test_get_report_date_range_exceeds_limit(mock_is_valid_org, client):
     assert response.status_code == 400
     data = json.loads(response.data)
     # The actual error message might vary, so we check for either possible message
-    assert 'Date range cannot exceed 1 year' in data['error'] or 'Invalid date format' in data['error']
+    assert 'Date range cannot exceed 1 year' in data['error'] or 'Invalid Request.' in data['error']
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")

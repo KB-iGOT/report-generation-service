@@ -275,17 +275,17 @@ def test_generate_report_exception(mock_get_mdo_id_org_list, mock_bigquery_servi
     mock_get_mdo_id_org_list.return_value = ['org1']
     mock_bigquery_service.run_query.side_effect = Exception("Query error")
     
-    # Execute
-    result = ReportServiceV2.generate_report(
-        start_date=None,
-        end_date=None,
-        org_id='org1',
-        is_full_report_required=False,
-        additional_filters={'certificate_generated': 'Yes'}
-    )
+    # Execute and expect Exception
+    with pytest.raises(Exception, match="Query error"):
+        ReportServiceV2.generate_report(
+            start_date=None,
+            end_date=None,
+            org_id='org1',
+            is_full_report_required=False,
+            additional_filters={'certificate_generated': 'Yes'}
+        )
     
     # Verify
-    assert result is None
     mock_bigquery_service.run_query.assert_called_once()
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')

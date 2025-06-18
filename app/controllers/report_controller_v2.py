@@ -63,8 +63,8 @@ def _parse_date_range(data, start_key='start_date', end_key='end_date'):
     
     # Validate date range
     if (end_date - start_date).days > 365:
-        logger.warning(f"Date range exceeds 1 year: {start_key}={start_date}, {end_key}={end_date}")
-        return None, None, {'error': 'Date range cannot exceed 1 year'}, 400
+        logger.error(f"Date range exceeds 1 year: {start_key}={start_date}, {end_key}={end_date}")
+        raise ValueError("Date range cannot exceed 1 year")
     
     return start_date, end_date, None
 
@@ -97,8 +97,8 @@ def get_report(org_id):
             return jsonify({'error': 'Invalid input. Please provide start_date and end_date.', 'details': error_message}), 400
         except ValueError as e:
             error_message = str(e)
-            logger.error(f"Invalid date format in request: {error_message}")
-            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.', 'details': error_message}), 400
+            logger.error(f"Invalid value in request: {error_message}")
+            return jsonify({'error': 'Invalid Request.', 'details': error_message}), 400
         
         # Get parameters from request body
         is_full_report_required = data.get('isFullReportRequired', False)
