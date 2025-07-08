@@ -118,18 +118,10 @@ def test_sync_all_tables_error(sync_service):
 
 
 def test_merge_parquet_to_bq(sync_service):
-    """Test merging parquet files to BigQuery."""
+    """Test replacing parquet files to BigQuery (no merge, just replace)."""
     # Setup
     mock_job = MagicMock()
     sync_service.bq_client.load_table_from_uri.return_value = mock_job
-    
-    mock_table = MagicMock()
-    mock_field1 = MagicMock()
-    mock_field1.name = 'id'
-    mock_field2 = MagicMock()
-    mock_field2.name = 'value'
-    mock_table.schema = [mock_field1, mock_field2]
-    sync_service.bq_client.get_table.return_value = mock_table
     
     # Execute
     sync_service.merge_parquet_to_bq(
@@ -140,16 +132,17 @@ def test_merge_parquet_to_bq(sync_service):
     )
     
     # Verify
-    sync_service.bq_client.load_table_from_uri.assert_called_once()
-    sync_service.bq_client.query.assert_called_once()
     sync_service.bq_client.delete_table.assert_called_once_with(
-        'test_dataset.test_table_staging',
-        not_found_ok=True
+        'test_dataset.test_table', not_found_ok=True
     )
+    sync_service.bq_client.load_table_from_uri.assert_called_once()
+    mock_job.result.assert_called_once()
+    # No query or staging table cleanup should be called
+    assert not hasattr(sync_service.bq_client, 'query') or not sync_service.bq_client.query.called
 
 
 def test_merge_parquet_to_bq_error(sync_service):
-    """Test error handling in merge_parquet_to_bq."""
+    """Test error handling in merge_parquet_to_bq (load error)."""
     # Setup
     sync_service.bq_client.load_table_from_uri.side_effect = Exception("Load error")
     
@@ -161,36 +154,6 @@ def test_merge_parquet_to_bq_error(sync_service):
             'test_table',
             ['id']
         )
-    
-    # Should still try to clean up
     sync_service.bq_client.delete_table.assert_called_once_with(
-        'test_dataset.test_table_staging',
-        not_found_ok=True
-    )
-
-
-def test_cleanup_staging_table(sync_service):
-    """Test cleanup of staging table."""
-    # Execute
-    sync_service.cleanup_staging_table('test_dataset.test_table_staging')
-    
-    # Verify
-    sync_service.bq_client.delete_table.assert_called_once_with(
-        'test_dataset.test_table_staging',
-        not_found_ok=True
-    )
-
-
-def test_cleanup_staging_table_error(sync_service):
-    """Test error handling in cleanup_staging_table."""
-    # Setup
-    sync_service.bq_client.delete_table.side_effect = Exception("Delete error")
-    
-    # Execute - should not raise exception
-    sync_service.cleanup_staging_table('test_dataset.test_table_staging')
-    
-    # Verify
-    sync_service.bq_client.delete_table.assert_called_once_with(
-        'test_dataset.test_table_staging',
-        not_found_ok=True
+        'test_dataset.test_table', not_found_ok=True
     )

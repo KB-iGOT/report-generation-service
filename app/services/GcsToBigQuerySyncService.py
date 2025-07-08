@@ -63,50 +63,19 @@ class GcsToBigQuerySyncService:
         return sync_config
 
     def merge_parquet_to_bq(self, gcs_uri, dataset, target_table, merge_keys):
-        staging_table = f"{target_table}_staging"
-        full_staging_table = f"{dataset}.{staging_table}"
         full_target_table = f"{dataset}.{target_table}"
-
         try:
-            logger.info(f"Loading data from {gcs_uri} into {full_staging_table}")
+            # Delete the target table if it exists
+            logger.info(f"Deleting table if exists: {full_target_table}")
+            self.bq_client.delete_table(full_target_table, not_found_ok=True)
+            logger.info(f"Deleted table: {full_target_table}")
+
+            # Load new data from GCS Parquet into the target table
+            logger.info(f"Loading data from {gcs_uri} into {full_target_table}")
             job_config = bigquery.LoadJobConfig(source_format=bigquery.SourceFormat.PARQUET)
-            self.bq_client.load_table_from_uri(gcs_uri, full_staging_table, job_config=job_config).result()
-
-            logger.info(f"Loaded staging table: {full_staging_table}")
-
-            schema = self.bq_client.get_table(full_staging_table).schema
-            column_names = [field.name for field in schema]
-
-            merge_condition = ' AND '.join([f"T.`{key}` = S.`{key}`" for key in merge_keys])
-            update_clause = ', '.join([f"T.`{col}` = S.`{col}`" for col in column_names])
-            insert_clause = f"({', '.join([f'`{col}`' for col in column_names])}) VALUES ({', '.join([f'S.`{col}`' for col in column_names])})"
-
-            merge_query = f"""
-            MERGE `{full_target_table}` T
-            USING `{full_staging_table}` S
-            ON {merge_condition}
-            WHEN MATCHED THEN
-              UPDATE SET {update_clause}
-            WHEN NOT MATCHED THEN
-              INSERT {insert_clause}
-            """
-
-            logger.info(f"Running merge query for {target_table}")
-            start_time = time.time()
-            self.bq_client.query(merge_query).result()
-            duration = time.time() - start_time
-            logger.info(f"Merge completed for {target_table} in {duration:.2f} seconds")
+            self.bq_client.load_table_from_uri(gcs_uri, full_target_table, job_config=job_config).result()
+            logger.info(f"Loaded data into table: {full_target_table}")
 
         except Exception as e:
-            logger.error(f"Error merging table {target_table}: {e}", exc_info=True)
+            logger.error(f"Error replacing table {target_table}: {e}", exc_info=True)
             raise
-
-        finally:
-            self.cleanup_staging_table(full_staging_table)
-
-    def cleanup_staging_table(self, staging_table):
-        try:
-            self.bq_client.delete_table(staging_table, not_found_ok=True)
-            logger.info(f"Deleted staging table {staging_table}")
-        except Exception as e:
-            logger.warning(f"Failed to delete staging table {staging_table}: {e}")
