@@ -468,6 +468,29 @@ def _generate_dummy_enrolments_data(
         })
     df = pd.DataFrame(records)
 
+    # Mask email and phone columns
+    def mask_row(row):
+        row_dict = row.copy()
+        # Mask email
+        if 'email' in row_dict and row_dict['email']:
+            parts = row_dict['email'].split('@')
+            if len(parts) == 2:
+                domain_parts = parts[1].split('.')
+                masked_domain = '.'.join(['*' * len(part) for part in domain_parts])
+                row_dict['email'] = f"{parts[0]}@{masked_domain}"
+            else:
+                row_dict['email'] = parts[0]
+        # Mask phone (column name is 'phone')
+        if 'phone' in row_dict and row_dict['phone']:
+            phone = str(row_dict['phone'])
+            if len(phone) >= 4:
+                row_dict['phone'] = '*' * (len(phone) - 4) + phone[-4:]
+            else:
+                row_dict['phone'] = '*' * len(phone)
+        return row_dict
+
+    df = df.apply(mask_row, axis=1)
+
     # Filter by enrolled_on date range
     df = df[
         (pd.to_datetime(df['enrolled_on']) >= start_date) &
