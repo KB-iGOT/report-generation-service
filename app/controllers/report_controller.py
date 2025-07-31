@@ -458,7 +458,7 @@ def _generate_dummy_enrolments_data(
             "content_status": status,
             "phone": f"+91{random.randint(7000000000, 9999999999)}",
             "email": f"user{random.randint(1, 100)}@example.com",
-            "external_system_id": str(uuid.uuid4()),
+            "external_system_id": f"USER{random.randint(1000, 9999)}",
             "isApar": True,
             "cbp_plan_id": str(uuid.uuid4()),
             "CompetencyType": random.choice(competency_types),
