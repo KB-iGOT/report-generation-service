@@ -8,6 +8,11 @@ import time as time_module
 from app.authentication.AccessTokenValidator import AccessTokenValidator
 from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED, X_ORG_ID
 from app.services.GcsToBigQuerySyncService import GcsToBigQuerySyncService
+import pandas as pd
+import io
+import uuid
+import random
+from datetime import timedelta
 
 # Configure logger
 logging.basicConfig(level=logging.INFO)
@@ -67,7 +72,7 @@ def get_report(org_id):
             return jsonify({'error': 'Date range cannot exceed 1 year'}), 400
 
         try:
-            csv_data = ReportService.fetch_master_enrolments_data(
+            csv_data = _get_enrolments_csv(
                 start_date, end_date, org_id, is_full_report_required,
                 required_columns=required_columns
             )
@@ -319,3 +324,174 @@ def sync_gcs_to_bq():
         return jsonify({"status": "success", "message": "All tables synced successfully"}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@report_controller.route('/report/apar/enrolment', methods=['POST'])
+def get_apar_report():
+    start_timer = time_module.time()
+    try:
+        logger.info("Received request to generate APAR report")
+        # Parse and validate date range
+        data = request.get_json()
+        if not data or 'start_date' not in data or 'end_date' not in data:
+            raise KeyError("Missing 'start_date' or 'end_date' in request body.")
+
+        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
+        end_date = datetime.strptime(data['end_date'], '%Y-%m-%d')
+
+        start_date = datetime.combine(start_date.date(), time.min)  # 00:00:00
+        end_date = datetime.combine(end_date.date(), time.max)      # 23:59:59.999999
+
+        required_columns = data.get('required_columns', [])
+         
+        logger.info(f"Generating report from {start_date} to {end_date}")
+         #Validate date range
+        if (end_date - start_date).days > 365:
+            logger.warning(f"Date range exceeds 1 year: start_date={start_date}, end_date={end_date}")
+            return jsonify({'error': 'Date range cannot exceed 1 year'}), 400
+
+        try:
+            csv_data = _get_enrolments_csv(
+                start_date, end_date,
+                required_columns=required_columns
+            )
+
+            if not csv_data:
+                logger.warning(f"No data found for the given date range: {start_date} to {end_date}")
+                return jsonify({'error': 'No data found for the given organization ID.'}), 404
+
+        except Exception as e:
+            error_message = str(e)
+            logger.error(f"Error generating CSV stream for APAR report: {error_message}")
+            return jsonify({'error': 'Failed to generate the report due to an error.', 'details': error_message}), 500
+
+        time_taken = round(time_module.time() - start_timer, 2)
+        logger.info(f"APAR Report generated successfully in {time_taken} seconds")
+
+        response = Response(
+            stream_with_context(csv_data),
+            mimetype="text/csv",
+            headers={
+                "Content-Disposition": f'attachment; filename="report.csv"'
+            }
+        )
+
+        # Explicitly trigger garbage collection to free up memory
+        del csv_data
+        gc.collect()
+
+        return response
+
+    except KeyError as e:
+        error_message = str(e)
+        logger.error(f"Missing required fields in request: {error_message}")
+        return jsonify({'error': 'Invalid input. Please provide start_date and end_date.', 'details': error_message}), 400
+
+    except ValueError as e:
+        error_message = str(e)
+        logger.error(f"Invalid date format in request: {error_message}")
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.', 'details': error_message}), 400
+
+    except FileNotFoundError as e:
+        error_message = str(e)
+        logger.error(f"File not found during report generation: {error_message}")
+        return jsonify({'error': 'Report file could not be generated.', 'details': error_message}), 500
+
+    except Exception as e:
+        error_message = str(e)
+        logger.exception(f"Unexpected error occurred: {error_message}")
+        return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
+    finally: 
+        gc.collect()
+        try:
+            logger.info("inside malloc_trim:")
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception as e:
+            logger.exception("malloc_trim failed: %s", str(e))
+
+def _generate_dummy_enrolments_data(
+    start_date, end_date, required_columns
+):
+    """
+    Generate dummy enrolment data as a pandas DataFrame, filter by date, and return as CSV stream.
+    """
+    # Dummy value lists
+    mdo_names = ['Ministry of Railways', 'Ministry of Post', 'Ministry of Defence']
+    content_types = ['Course', 'Program', 'Comprehensive Assessment']
+    content_statuses = ['Completed', 'In Progress', 'Not Started']
+    competency_types = ['Behavioural', 'Functional', 'Domain']
+    assessment_statuses = ['Pass', 'Fail']
+    real_names = [
+        "Amit Sharma", "Priya Singh", "Rahul Verma", "Neha Gupta", "Vikram Patel",
+        "Sunita Reddy", "Rohit Mehra", "Anjali Nair", "Deepak Joshi", "Meena Kumari"
+    ]
+
+    # Generate 35 dummy records
+    records = []
+    for _ in range(35):
+        enrolled_on = start_date + timedelta(days=random.randint(0, max(1, (end_date - start_date).days)))
+        last_accessed = enrolled_on + timedelta(days=random.randint(0, 10))
+        first_completed = last_accessed + timedelta(days=random.randint(0, 10))
+        content_progress = random.randint(0, 100)
+        status = 'Completed' if content_progress == 100 else random.choice(content_statuses)
+        certificate_id = str(uuid.uuid4()) if status == 'Completed' else None
+        certificate_generated = str(uuid.uuid4()) if status == 'Completed' else None
+        content_type = random.choice(content_types)
+        records.append({
+            "user_id": str(uuid.uuid4()),
+            "mdo_id": random.randint(100077777, 999900000),
+            "mdo_name": random.choice(mdo_names),
+            "full_name": random.choice(real_names),
+            "content_id": str(uuid.uuid4()),
+            "content_name": random.choice([
+                "Yoga Day Course", "AI Generated Course", "AI Assessment", "Digital Literacy Program",
+                "Cyber Security Basics", "Leadership Essentials", "Project Management 101",
+                "Health & Wellness", "Climate Change Awareness", "Data Analytics Bootcamp"
+            ]),
+            "content_type": content_type,
+            "enrolled_on": enrolled_on.strftime("%Y-%m-%d"),
+            "content_progress_percentage": content_progress,
+            "certificate_generated": certificate_generated,
+            "content_last_accessed_on": last_accessed.strftime("%Y-%m-%d"),
+            "first_completed_on": first_completed.strftime("%Y-%m-%d") if status == 'Completed' else None,
+            "certificate_id": certificate_id,
+            "content_duration": random.randint(1, 20) * 10,
+            "content_status": status,
+            "phone": f"+91{random.randint(7000000000, 9999999999)}",
+            "email": f"user{random.randint(1, 100)}@example.com",
+            "external_system_id": str(uuid.uuid4()),
+            "isApar": True,
+            "cbp_plan_id": str(uuid.uuid4()),
+            "CompetencyType": random.choice(competency_types),
+            "Status_Comprehensive_Level_Assessment": random.choice(assessment_statuses),
+            "from_Date": enrolled_on.strftime("%Y-%m-%d"),
+            "to_date": first_completed.strftime("%Y-%m-%d") if status == 'Completed' else last_accessed.strftime("%Y-%m-%d"),
+        })
+    df = pd.DataFrame(records)
+
+    # Filter by enrolled_on date range
+    df = df[
+        (pd.to_datetime(df['enrolled_on']) >= start_date) &
+        (pd.to_datetime(df['enrolled_on']) <= end_date)
+    ]
+
+    # Filter columns if required_columns is provided and not empty
+    if required_columns:
+        # Only keep columns that exist in DataFrame
+        filtered_cols = [col for col in required_columns if col in df.columns]
+        if filtered_cols:
+            df = df[filtered_cols]
+
+    # Return CSV as a stream with pipe delimiter
+    csv_stream = io.StringIO()
+    df.to_csv(csv_stream, index=False, sep='|')
+    csv_stream.seek(0)
+    return csv_stream
+
+def _get_enrolments_csv(start_date, end_date, required_columns):
+    """
+    Private helper to fetch enrolments CSV data (dummy data version).
+    """
+    return _generate_dummy_enrolments_data(
+        start_date, end_date, required_columns
+    )
+
