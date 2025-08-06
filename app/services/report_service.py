@@ -1,9 +1,10 @@
 import logging
 from app.services.fetch_data_bigQuery import BigQueryService
 from app.services.redis_service import RedisService
-from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE, MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_AGE
+from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE, MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_AGE, MASTER_APAR_TABLE
 import gc
-import pandas as pd
+import io
+from google.cloud import bigquery
 
 logging.basicConfig(
     level=logging.INFO,
@@ -348,3 +349,101 @@ class ReportService:
         except Exception as e:
             ReportService.logger.error(f"Error fetching mdo_list_data: {e}", exc_info=True)
             return False
+
+    @staticmethod
+    def fetch_apar_enrolment_report(enrolment_start_date, enrolment_end_date, filters, required_columns):
+        """
+        Fetch data from BQ table master_enrolment_apar_dummy, apply filters, and return CSV stream.
+        """
+        try:
+            client = BigQueryService()
+            table = MASTER_APAR_TABLE
+
+            # Build dynamic filter clauses and parameters
+            date_filter = ""
+            if enrolment_start_date and enrolment_end_date:
+                date_filter = f" AND enrolled_on BETWEEN '{enrolment_start_date}' AND '{enrolment_end_date}'"
+
+            # Map filter keys to BQ column names
+            filter_key_map = {
+                "user_email": "email",
+                "mobile_no": "phone",
+                "parichay_id": "parichay_id"
+            }
+            filter_clauses = []
+            params = []
+            # Add filters if present
+            for key, value in filters.items():
+                if value and key in filter_key_map:
+                    bq_col = filter_key_map[key]
+                    filter_clauses.append(f"{bq_col} = @{bq_col}")
+                    if (bq_col == "phone"):
+                        params.append(bigquery.ScalarQueryParameter(bq_col, "INTEGER", value.strip()))
+                    else :
+                        params.append(bigquery.ScalarQueryParameter(bq_col, "STRING", value.strip()))
+
+            # Always add date filter
+            if enrolment_start_date and enrolment_end_date:
+                filter_clauses.insert(0, "enrolled_on >= @start_date AND enrolled_on <= @end_date")
+                params.insert(0, bigquery.ScalarQueryParameter("end_date", "TIMESTAMP", enrolment_end_date))
+                params.insert(0, bigquery.ScalarQueryParameter("start_date", "TIMESTAMP", enrolment_start_date))
+
+            # Build query
+            if filter_clauses:
+                query = f"""
+                    SELECT *
+                    FROM `{table}`
+                    WHERE {" AND ".join(filter_clauses)}
+                """
+            else:
+                query = f"""
+                    SELECT *
+                    FROM `{table}`{date_filter}
+                """
+
+    
+            job_config = bigquery.QueryJobConfig(query_parameters=params)
+            ReportService.logger.info(f"Executing APAR enrolment query: {query} with params: {params}")
+            df = client.query(query, job_config=job_config).to_dataframe()
+
+            # Filter columns if required
+            if required_columns:
+                filtered_cols = [col for col in required_columns if col in df.columns]
+                if filtered_cols:
+                    df = df[filtered_cols]
+
+            def generate_csv_stream(df, cols):
+                try:
+                    yield '|'.join(cols) + '\n'
+                    for row in df.itertuples(index=False, name=None):
+                        row_dict = dict(zip(cols, row))
+                        if True:
+                            if 'email' in row_dict and row_dict['email'] is not None:
+                                parts = row_dict['email'].split('@')
+                                if len(parts) == 2:
+                                    domain_parts = parts[1].split('.')
+                                    masked_domain = '.'.join(['*' * len(part) for part in domain_parts])
+                                    row_dict['email'] = f"{parts[0]}@{masked_domain}"
+                                else:
+                                    row_dict['email'] = parts[0]
+
+                            # Mask phone number: e.g., ******2245
+                            if 'phone' in row_dict and row_dict['phone'] is not None:
+                                phone = str(row_dict['phone'])
+                                if phone and len(phone) >= 4:
+                                    row_dict['phone'] = '*' * (len(phone) - 4) + phone[-4:]
+                                elif phone:
+                                    row_dict['phone'] = '*' * len(phone)
+
+                        # Convert back to row and yield
+                        yield '|'.join([str(row_dict.get(col, '')) for col in cols]) + '\n'
+                finally:
+                    df.drop(df.index, inplace=True)
+                    del df
+                    gc.collect()
+                    ReportService.logger.info("Cleaned up DataFrame after streaming.")
+            ReportService.logger.info(f"CSV stream generated with {len(df)} rows.")
+            return generate_csv_stream(df, df.columns.tolist())
+        except Exception as e:
+            ReportService.logger.error(f"Error fetching APAR enrolment report: {e}")
+            return None

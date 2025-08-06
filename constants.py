@@ -71,4 +71,6 @@ REDIS_SSL = os.environ.get('REDIS_SSL', 'False').lower() == 'true'
 REDIS_TIMEOUT = int(os.environ.get('REDIS_TIMEOUT', 5))
 REDIS_KEY_MDO_PREFIX = os.environ.get('REDIS_KEY_MDO_PREFIX', 'igot_mdo_')
 REDIS_DEFAULT_TTL = int(os.environ.get('REDIS_DEFAULT_TTL', 14400))
+GCP_APAR_TABLE_NAME = os.environ.get('GCP_APAR_TABLE_NAME', 'master_enrolment_apar_dummy')
+MASTER_APAR_TABLE = f"{GCP_PROJECT}.{GCP_DB_NAME}.{GCP_APAR_TABLE_NAME}"
  

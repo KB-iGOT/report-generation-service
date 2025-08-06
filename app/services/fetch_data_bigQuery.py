@@ -42,6 +42,14 @@ class BigQueryService:
             logger.error(f"Error running query: {e}")
             return None
 
+    def query(self, query, job_config=None, timeout=None):
+        try:
+            query_job = self.client.query(query, job_config=job_config)
+            return query_job.result(timeout=timeout)
+        except Exception as e:
+            logger.error(f"Error executing query with job config: {e}")
+            return None
+        
     @staticmethod
     def test_connection(service=None):
         try:
