@@ -72,7 +72,7 @@ def get_report(org_id):
             return jsonify({'error': 'Date range cannot exceed 1 year'}), 400
 
         try:
-            csv_data = _get_enrolments_csv(
+            csv_data = ReportService.fetch_master_enrolments_data(
                 start_date, end_date, org_id, is_full_report_required,
                 required_columns=required_columns
             )
