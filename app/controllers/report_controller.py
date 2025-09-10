@@ -8,7 +8,6 @@ import time as time_module
 from app.authentication.AccessTokenValidator import AccessTokenValidator
 from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED, X_ORG_ID
 from app.services.GcsToBigQuerySyncService import GcsToBigQuerySyncService
-import pandas as pd
 import io
 import uuid
 import random

@@ -856,3 +856,305 @@ def test_malloc_trim_exception(mock_report_service, mock_cdll, client):
     # Verify - should still return 200 as the malloc_trim exception is caught
     assert response.status_code == 200
     mock_report_service.isValidOrg.assert_called_once_with('org456', 'org123')
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_success(mock_report_service, client):
+    """Test successful APAR report generation."""
+    # Setup
+    mock_csv_generator = MagicMock()
+    mock_csv_generator.__iter__ = MagicMock(return_value=iter(["header\n", "data1\n", "data2\n"]))
+    mock_report_service.fetch_apar_enrolment_report.return_value = mock_csv_generator
+    
+    # Execute
+    response = client.post(
+        '/report/apar/enrolment',
+        json={
+            'enrolment_start_date': '2023-01-01',
+            'enrolment_end_date': '2023-01-31',
+            'filters': {'user_email': 'test@example.com'},
+            'required_columns': ['col1', 'col2']
+        }
+    )
+    
+    # Verify
+    assert response.status_code == 200
+    assert response.mimetype == 'text/csv'
+    assert 'attachment; filename="report.csv"' in response.headers['Content-Disposition']
+    mock_report_service.fetch_apar_enrolment_report.assert_called_once()
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_missing_dates(mock_report_service, client):
+    """Test APAR report generation with missing date parameters."""
+    # Execute
+    response = client.post('/report/apar/enrolment', json={})
+    
+    # Verify
+    assert response.status_code == 400
+    data = response.get_json()
+    assert 'Invalid input' in data['error']
+    mock_report_service.fetch_apar_enrolment_report.assert_not_called()
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_invalid_filter_key(mock_report_service, client):
+    """Test APAR report generation with invalid filter key."""
+    # Execute
+    response = client.post(
+        '/report/apar/enrolment',
+        json={
+            'enrolment_start_date': '2023-01-01',
+            'enrolment_end_date': '2023-01-31',
+            'filters': {'invalid_key': 'value'}
+        }
+    )
+    
+    # Verify
+    assert response.status_code == 400
+    data = response.get_json()
+    assert 'Invalid filter key' in data['error']
+    mock_report_service.fetch_apar_enrolment_report.assert_not_called()
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_empty_filters(mock_report_service, client):
+    """Test APAR report generation with empty filters."""
+    # Execute
+    response = client.post(
+        '/report/apar/enrolment',
+        json={
+            'enrolment_start_date': '2023-01-01',
+            'enrolment_end_date': '2023-01-31',
+            'filters': {'user_email': '', 'mobile_no': '', 'parichay_id': ''}
+        }
+    )
+    
+    # Verify
+    assert response.status_code == 400
+    data = response.get_json()
+    assert 'At least one of' in data['error']
+    mock_report_service.fetch_apar_enrolment_report.assert_not_called()
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_date_range_too_long(mock_report_service, client):
+    """Test APAR report generation with date range exceeding 1 year."""
+    # Execute
+    response = client.post(
+        '/report/apar/enrolment',
+        json={
+            'enrolment_start_date': '2022-01-01',
+            'enrolment_end_date': '2023-02-01',  # More than 1 year
+            'filters': {'user_email': 'test@example.com'}
+        }
+    )
+    
+    # Verify
+    assert response.status_code == 400
+    data = response.get_json()
+    assert 'Date range cannot exceed 1 year' in data['error']
+    mock_report_service.fetch_apar_enrolment_report.assert_not_called()
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_no_data(mock_report_service, client):
+    """Test APAR report generation with no data found."""
+    # Setup
+    mock_report_service.fetch_apar_enrolment_report.return_value = None
+    
+    # Execute
+    response = client.post(
+        '/report/apar/enrolment',
+        json={
+            'enrolment_start_date': '2023-01-01',
+            'enrolment_end_date': '2023-01-31',
+            'filters': {'user_email': 'test@example.com'}
+        }
+    )
+    
+    # Verify
+    assert response.status_code == 404
+    data = response.get_json()
+    assert 'No data found' in data['error']
+    mock_report_service.fetch_apar_enrolment_report.assert_called_once()
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_service_error(mock_report_service, client):
+    """Test APAR report generation with service error."""
+    # Setup
+    mock_report_service.fetch_apar_enrolment_report.side_effect = Exception("Service error")
+    
+    # Execute
+    response = client.post(
+        '/report/apar/enrolment',
+        json={
+            'enrolment_start_date': '2023-01-01',
+            'enrolment_end_date': '2023-01-31',
+            'filters': {'user_email': 'test@example.com'}
+        }
+    )
+    
+    # Verify
+    assert response.status_code == 500
+    data = response.get_json()
+    assert 'Failed to generate the report' in data['error']
+    mock_report_service.fetch_apar_enrolment_report.assert_called_once()
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_invalid_date_format(mock_report_service, client):
+    """Test APAR report generation with invalid date format."""
+    # Execute
+    response = client.post(
+        '/report/apar/enrolment',
+        json={
+            'enrolment_start_date': '01-01-2023',  # Wrong format
+            'enrolment_end_date': '2023-01-31',
+            'filters': {'user_email': 'test@example.com'}
+        }
+    )
+    
+    # Verify
+    assert response.status_code == 400
+    data = response.get_json()
+    assert 'Invalid date format' in data['error']
+    mock_report_service.fetch_apar_enrolment_report.assert_not_called()
+
+
+@patch("app.controllers.report_controller.ReportService")
+@patch("app.controllers.report_controller.IS_VALIDATION_ENABLED", "false")
+def test_get_report_file_not_found_error(mock_report_service, client):
+    """Test report generation with FileNotFoundError."""
+    # Setup
+    mock_report_service.fetch_master_enrolments_data.side_effect = FileNotFoundError("File not found")
+    mock_report_service.isValidOrg.return_value = True
+    
+    # Execute
+    response = client.post(
+        '/report/org/enrolment/org123',
+        json={
+            'start_date': '2023-01-01',
+            'end_date': '2023-01-31'
+        },
+        headers={'x-org-id': 'org456'}
+    )
+    
+    # Verify
+    assert response.status_code == 500
+    data = response.get_json()
+    assert 'Failed to generate the report due to an error' in data['error']
+    mock_report_service.isValidOrg.assert_called_once_with('org456', 'org123')
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_user_report_key_error(mock_report_service, client):
+    """Test user report generation with KeyError."""
+    # Setup
+    mock_report_service.fetch_user_cumulative_report.side_effect = KeyError("Missing key")
+    mock_report_service.isValidOrg.return_value = True
+    
+    # Execute
+    response = client.post(
+        '/report/user/sync/org123',
+        json={
+            'userEmail': 'test@example.com'
+        },
+        headers={'x-org-id': 'org456'}
+    )
+    
+    # Verify
+    assert response.status_code == 500
+    data = response.get_json()
+    assert 'Failed to generate the report due to an internal error' in data['error']
+    mock_report_service.isValidOrg.assert_called_once_with('org456', 'org123')
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_org_user_report_key_error(mock_report_service, client):
+    """Test organization user report generation with KeyError."""
+    # Setup
+    mock_report_service.fetch_master_user_data.side_effect = KeyError("Missing key")
+    mock_report_service.isValidOrg.return_value = True
+    
+    # Execute
+    response = client.post(
+        '/report/org/user/org123',
+        json={"dummy": "data"},
+        headers={'x-org-id': 'org456'}
+    )
+    
+    # Verify
+    assert response.status_code == 500
+    data = response.get_json()
+    assert 'Failed to generate the report due to an internal error' in data['error']
+    mock_report_service.isValidOrg.assert_called_once_with('org456', 'org123')
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_file_not_found_error(mock_report_service, client):
+    """Test APAR report generation with FileNotFoundError."""
+    # Setup
+    mock_report_service.fetch_apar_enrolment_report.side_effect = FileNotFoundError("File not found")
+    
+    # Execute
+    response = client.post(
+        '/report/apar/enrolment',
+        json={
+            'enrolment_start_date': '2023-01-01',
+            'enrolment_end_date': '2023-01-31',
+            'filters': {'user_email': 'test@example.com'}
+        }
+    )
+    
+    # Verify
+    assert response.status_code == 500
+    data = response.get_json()
+    assert 'Failed to generate the report due to an error' in data['error']
+    mock_report_service.fetch_apar_enrolment_report.assert_called_once()
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_user_report_with_all_identifiers_empty_strings(mock_report_service, client):
+    """Test user report generation with all identifiers as empty strings after trimming."""
+    # Setup
+    mock_report_service.isValidOrg.return_value = True
+    
+    # Execute
+    response = client.post(
+        '/report/user/sync/org123',
+        json={
+            'userEmail': '   ',  # Only whitespace
+            'userPhone': '   ',  # Only whitespace
+            'ehrmsId': '   '     # Only whitespace
+        },
+        headers={'x-org-id': 'org456'}
+    )
+    
+    # Verify
+    assert response.status_code == 400
+    data = response.get_json()
+    assert 'At least one of' in data['error']
+    mock_report_service.isValidOrg.assert_called_once_with('org456', 'org123')
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_report_with_json_none(mock_report_service, client):
+    """Test report generation with None JSON body."""
+    # Setup
+    mock_report_service.isValidOrg.return_value = True
+    
+    # Execute
+    response = client.post(
+        '/report/org/enrolment/org123',
+        data=None,
+        content_type='application/json',
+        headers={'x-org-id': 'org456'}
+    )
+    
+    # Verify
+    assert response.status_code == 500
+    data = response.get_json()
+    assert 'An unexpected error occurred' in data['error']
+    mock_report_service.isValidOrg.assert_called_once_with('org456', 'org123')

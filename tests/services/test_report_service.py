@@ -32,26 +32,25 @@ def test_fetch_user_cumulative_report_success(mock_bigquery_service):
     mock_bigquery_service.run_query.side_effect = [user_df, enrollment_df]
     
     # Execute
-    with patch('app.services.report_service.pd.DataFrame.drop') as mock_drop:
-        result = ReportService.fetch_user_cumulative_report(
-            email='test@example.com',
-            orgId='org1'
-        )
-        
-        # Verify
-        assert result is not None
-        # Check first item in generator is the header
-        header = next(result)
-        assert 'user_id' in header
-        assert 'course_id' in header
-        assert 'progress' in header
-        
-        # Check that the queries were executed
-        assert mock_bigquery_service.run_query.call_count == 2
-        
-        # Clean up the generator to avoid ResourceWarning
-        for _ in result:
-            pass
+    result = ReportService.fetch_user_cumulative_report(
+        email='test@example.com',
+        orgId='org1'
+    )
+    
+    # Verify
+    assert result is not None
+    # Check first item in generator is the header
+    header = next(result)
+    assert 'user_id' in header
+    assert 'course_id' in header
+    assert 'progress' in header
+    
+    # Check that the queries were executed
+    assert mock_bigquery_service.run_query.call_count == 2
+    
+    # Clean up the generator to avoid ResourceWarning
+    for _ in result:
+        pass
 
 
 def test_fetch_user_cumulative_report_with_filters(mock_bigquery_service):
@@ -75,37 +74,36 @@ def test_fetch_user_cumulative_report_with_filters(mock_bigquery_service):
     start_date = datetime(2023, 1, 1)
     end_date = datetime(2023, 1, 31)
     
-    with patch('app.services.report_service.pd.DataFrame.drop'):
-        result = ReportService.fetch_user_cumulative_report(
-            email='test@example.com',
-            phone='1234567890',
-            ehrms_id='EMP123',
-            start_date=start_date,
-            end_date=end_date,
-            orgId='org1',
-            required_columns=['user_id', 'course_id']
-        )
-        
-        # Verify
-        assert result is not None
-        
-        # Check that the queries were executed with correct filters
-        assert mock_bigquery_service.run_query.call_count == 2
-        
-        # First query should include all user filters
-        first_query = mock_bigquery_service.run_query.call_args_list[0][0][0]
-        assert "email = 'test@example.com'" in first_query
-        assert "phone_number = '1234567890'" in first_query
-        assert "external_system_id = 'EMP123'" in first_query
-        
-        # Second query should include date range
-        second_query = mock_bigquery_service.run_query.call_args_list[1][0][0]
-        assert "user_id IN ('user1')" in second_query
-        assert f"enrolled_on BETWEEN '{start_date}' AND '{end_date}'" in second_query
-        
-        # Clean up the generator to avoid ResourceWarning
-        for _ in result:
-            pass
+    result = ReportService.fetch_user_cumulative_report(
+        email='test@example.com',
+        phone='1234567890',
+        ehrms_id='EMP123',
+        start_date=start_date,
+        end_date=end_date,
+        orgId='org1',
+        required_columns=['user_id', 'course_id']
+    )
+    
+    # Verify
+    assert result is not None
+    
+    # Check that the queries were executed with correct filters
+    assert mock_bigquery_service.run_query.call_count == 2
+    
+    # First query should include all user filters
+    first_query = mock_bigquery_service.run_query.call_args_list[0][0][0]
+    assert "email = 'test@example.com'" in first_query
+    assert "phone_number = '1234567890'" in first_query
+    assert "external_system_id = 'EMP123'" in first_query
+    
+    # Second query should include date range
+    second_query = mock_bigquery_service.run_query.call_args_list[1][0][0]
+    assert "user_id IN ('user1')" in second_query
+    assert f"enrolled_on BETWEEN '{start_date}' AND '{end_date}'" in second_query
+    
+    # Clean up the generator to avoid ResourceWarning
+    for _ in result:
+        pass
 
 
 def test_fetch_user_cumulative_report_no_users(mock_bigquery_service):
@@ -177,31 +175,30 @@ def test_fetch_master_enrolments_data_success(mock_bigquery_service):
     start_date = datetime(2023, 1, 1)
     end_date = datetime(2023, 1, 31)
     
-    with patch('app.services.report_service.pd.DataFrame.drop'):
-        result = ReportService.fetch_master_enrolments_data(
-            start_date=start_date,
-            end_date=end_date,
-            mdo_id='org1',
-            is_full_report_required=False,
-            required_columns=['user_id', 'course_id', 'progress']
-        )
-        
-        # Verify
-        assert result is not None
-        
-        # Check first item in generator is the header
-        header = next(result)
-        assert 'user_id|course_id|progress' in header
-        
-        # Check that the query was executed with correct parameters
-        mock_bigquery_service.run_query.assert_called_once()
-        query = mock_bigquery_service.run_query.call_args[0][0]
-        assert "mdo_id in ('org1')" in query
-        assert f"enrolled_on BETWEEN '{start_date}' AND '{end_date}'" in query
-        
-        # Clean up the generator to avoid ResourceWarning
-        for _ in result:
-            pass
+    result = ReportService.fetch_master_enrolments_data(
+        start_date=start_date,
+        end_date=end_date,
+        mdo_id='org1',
+        is_full_report_required=False,
+        required_columns=['user_id', 'course_id', 'progress']
+    )
+    
+    # Verify
+    assert result is not None
+    
+    # Check first item in generator is the header
+    header = next(result)
+    assert 'user_id|course_id|progress' in header
+    
+    # Check that the query was executed with correct parameters
+    mock_bigquery_service.run_query.assert_called_once()
+    query = mock_bigquery_service.run_query.call_args[0][0]
+    assert "mdo_id in ('org1')" in query
+    assert f"enrolled_on BETWEEN '{start_date}' AND '{end_date}'" in query
+    
+    # Clean up the generator to avoid ResourceWarning
+    for _ in result:
+        pass
 
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
@@ -220,26 +217,25 @@ def test_fetch_master_enrolments_data_full_report(mock_get_mdo_list, mock_bigque
     mock_bigquery_service.run_query.return_value = enrollment_df
     
     # Execute
-    with patch('app.services.report_service.pd.DataFrame.drop'):
-        result = ReportService.fetch_master_enrolments_data(
-            start_date=None,
-            end_date=None,
-            mdo_id='org1',
-            is_full_report_required=True,
-            required_columns=None
-        )
-        
-        # Verify
-        assert result is not None
-        
-        # Check that the query was executed with all org IDs
-        mock_bigquery_service.run_query.assert_called_once()
-        query = mock_bigquery_service.run_query.call_args[0][0]
-        assert "mdo_id in ('org2', 'org3', 'org1')" in query
-        
-        # Clean up the generator to avoid ResourceWarning
-        for _ in result:
-            pass
+    result = ReportService.fetch_master_enrolments_data(
+        start_date=None,
+        end_date=None,
+        mdo_id='org1',
+        is_full_report_required=True,
+        required_columns=None
+    )
+    
+    # Verify
+    assert result is not None
+    
+    # Check that the query was executed with all org IDs
+    mock_bigquery_service.run_query.assert_called_once()
+    query = mock_bigquery_service.run_query.call_args[0][0]
+    assert "mdo_id in ('org2', 'org3', 'org1')" in query
+    
+    # Clean up the generator to avoid ResourceWarning
+    for _ in result:
+        pass
 
 
 def test_fetch_master_enrolments_data_no_data(mock_bigquery_service):
@@ -294,8 +290,7 @@ def test_fetch_master_user_data_success(mock_bigquery_service):
     mock_bigquery_service.run_query.return_value = user_df
     
     # Execute
-    with patch('app.services.report_service.pd.DataFrame.drop'), \
-         patch('app.services.report_service.IS_MASKING_ENABLED', 'false'):
+    with patch('app.services.report_service.IS_MASKING_ENABLED', 'false'):
         result = ReportService.fetch_master_user_data(
             mdo_id='org1',
             is_full_report_required=False,
@@ -335,8 +330,7 @@ def test_fetch_master_user_data_full_report(mock_get_mdo_list, mock_bigquery_ser
     mock_bigquery_service.run_query.return_value = user_df
     
     # Execute
-    with patch('app.services.report_service.pd.DataFrame.drop'), \
-         patch('app.services.report_service.IS_MASKING_ENABLED', 'false'):
+    with patch('app.services.report_service.IS_MASKING_ENABLED', 'false'):
         result = ReportService.fetch_master_user_data(
             mdo_id='org1',
             is_full_report_required=True
@@ -371,8 +365,7 @@ def test_fetch_master_user_data_with_date_range(mock_bigquery_service):
     start_date = datetime(2023, 1, 1)
     end_date = datetime(2023, 1, 31)
     
-    with patch('app.services.report_service.pd.DataFrame.drop'), \
-         patch('app.services.report_service.IS_MASKING_ENABLED', 'false'):
+    with patch('app.services.report_service.IS_MASKING_ENABLED', 'false'):
         result = ReportService.fetch_master_user_data(
             mdo_id='org1',
             is_full_report_required=False,
@@ -408,29 +401,28 @@ def test_fetch_master_user_data_with_masking(mock_bigquery_service):
     mock_bigquery_service.run_query.return_value = user_df
     
     # Execute
-    with patch('app.services.report_service.pd.DataFrame.drop'):
-        result = ReportService.fetch_master_user_data(
-            mdo_id='org1',
-            is_full_report_required=False
-        )
-        
-        # Verify
-        assert result is not None
-        
-        # Skip header
-        next(result)
-        
-        # Check that the data is masked
-        data_row = next(result)
-        assert '@*******.**' in data_row or 'user1@*******.**' in data_row  # Masked email domain
-        assert '******7890' in data_row  # Masked phone number
-        
-        # Clean up the generator to avoid ResourceWarning
-        try:
-            for _ in result:
-                pass
-        except StopIteration:
+    result = ReportService.fetch_master_user_data(
+        mdo_id='org1',
+        is_full_report_required=False
+    )
+    
+    # Verify
+    assert result is not None
+    
+    # Skip header
+    next(result)
+    
+    # Check that the data is masked
+    data_row = next(result)
+    assert '@*******.**' in data_row or 'user1@*******.**' in data_row  # Masked email domain
+    assert '******7890' in data_row  # Masked phone number
+    
+    # Clean up the generator to avoid ResourceWarning
+    try:
+        for _ in result:
             pass
+    except StopIteration:
+        pass
 
 
 def test_fetch_master_user_data_no_data(mock_bigquery_service):
@@ -560,20 +552,20 @@ def test_isValidOrg_with_x_org_id(mock_get_mdo_list, mock_bigquery_service):
 
 
 
-@patch('app.services.report_service.ReportService._get_mdo_id_org_list')
-def test_isValidOrg_exception_handling(mock_get_mdo_list):
+@patch('app.services.report_service.BigQueryService')
+def test_isValidOrg_exception_handling(mock_bigquery_service_class):
     """
     Test that isValidOrg handles exceptions and returns False when an error occurs.
     """
     # Setup
-    mock_get_mdo_list.side_effect = Exception("Test exception")
+    mock_bigquery_service_class.side_effect = Exception("Test exception")
 
     # Execute
     result = ReportService.isValidOrg("org1", "org2")
 
     # Verify
     assert result is False
-    mock_get_mdo_list.assert_called_once()
+    mock_bigquery_service_class.assert_called_once()
 
 
 def test_isValidOrg_missing_org_id():
@@ -591,6 +583,127 @@ def test_isValidOrg_missing_org_id():
         
         # Verify that BigQueryService was not called
         mock_bigquery.assert_not_called()
+
+
+def test_isValidOrg_missing_x_org_id():
+    """
+    Test that isValidOrg returns False when x_org_id is None or empty.
+    """
+    with patch('app.services.report_service.BigQueryService') as mock_bigquery:
+        # Test with None x_org_id
+        result1 = ReportService.isValidOrg(None, "org1")
+        assert result1 is False
+        
+        # Test with empty x_org_id
+        result2 = ReportService.isValidOrg("", "org1")
+        assert result2 is False
+        
+        # Verify that BigQueryService was not called
+        mock_bigquery.assert_not_called()
+
+
+@patch('app.services.report_service.RedisService')
+def test_get_mdo_id_org_list_cache_hit(mock_redis_service, mock_bigquery_service):
+    """Test getting MDO ID organization list with cache hit."""
+    # Setup
+    mock_redis_instance = MagicMock()
+    mock_redis_service.return_value = mock_redis_instance
+    mock_redis_instance.get_value.return_value = ['org2', 'org3']  # Cache hit
+    
+    # Execute
+    result = list(ReportService._get_mdo_id_org_list(mock_bigquery_service, 'org1'))
+    
+    # Verify
+    assert result == ['org2', 'org3']
+    mock_redis_instance.get_value.assert_called_once_with('org1')
+    mock_bigquery_service.run_query.assert_not_called()  # Should not query DB on cache hit
+
+
+def test_fetch_user_cumulative_report_memory_error(mock_bigquery_service):
+    """Test fetch_user_cumulative_report handling MemoryError."""
+    # Setup
+    mock_bigquery_service.run_query.side_effect = MemoryError("Out of memory")
+    
+    # Execute and verify exception is re-raised
+    with pytest.raises(MemoryError):
+        ReportService.fetch_user_cumulative_report(email='test@example.com')
+
+
+def test_fetch_user_cumulative_report_invalid_org_id(mock_bigquery_service):
+    """Test fetch_user_cumulative_report with invalid organization ID."""
+    # Setup
+    user_df = pd.DataFrame({
+        'user_id': ['user1'],
+        'mdo_id': ['user_org']
+    })
+    mock_bigquery_service.run_query.return_value = user_df
+    
+    # Execute and verify ValueError is raised
+    with patch.object(ReportService, '_get_mdo_id_org_list', return_value=['other_org']):
+        with pytest.raises(ValueError, match="Invalid organization ID for user"):
+            ReportService.fetch_user_cumulative_report(
+                email='test@example.com',
+                orgId='invalid_org'
+            )
+
+
+def test_fetch_master_enrolments_data_with_missing_columns(mock_bigquery_service):
+    """Test fetch_master_enrolments_data with some missing required columns."""
+    # Setup
+    enrollment_df = pd.DataFrame({
+        'user_id': ['user1'],
+        'course_id': ['course1']
+        # Missing 'progress' column
+    })
+    mock_bigquery_service.run_query.return_value = enrollment_df
+    
+    # Execute
+    result = ReportService.fetch_master_enrolments_data(
+        start_date=None,
+        end_date=None,
+        mdo_id='org1',
+        is_full_report_required=False,
+        required_columns=['user_id', 'course_id', 'progress']  # 'progress' missing
+    )
+    
+    # Verify
+    assert result is not None
+    header = next(result)
+    assert 'user_id|course_id' in header
+    assert 'progress' not in header
+    
+    # Clean up generator
+    for _ in result:
+        pass
+
+
+def test_fetch_master_user_data_with_missing_columns(mock_bigquery_service):
+    """Test fetch_master_user_data with some missing required columns."""
+    # Setup
+    user_df = pd.DataFrame({
+        'user_id': ['user1'],
+        'email': ['user1@example.com']
+        # Missing 'phone_number' column
+    })
+    mock_bigquery_service.run_query.return_value = user_df
+    
+    # Execute
+    with patch('app.services.report_service.IS_MASKING_ENABLED', 'false'):
+        result = ReportService.fetch_master_user_data(
+            mdo_id='org1',
+            is_full_report_required=False,
+            required_columns=['user_id', 'email', 'phone_number']  # 'phone_number' missing
+        )
+        
+        # Verify
+        assert result is not None
+        header = next(result)
+        assert 'user_id|email' in header
+        assert 'phone_number' not in header
+        
+        # Clean up generator
+        for _ in result:
+            pass
 
 
 def test_fetch_user_cumulative_report_1(mock_bigquery_service):
@@ -758,3 +871,248 @@ def test_fetch_user_cumulative_report_9(mock_bigquery_service):
     # Verify
     assert result is None
     assert mock_bigquery_service.run_query.call_count == 2
+
+
+@patch('app.services.report_service.BigQueryService')
+def test_fetch_apar_enrolment_report_success(mock_bigquery_service_class):
+    """Test successful APAR enrolment report generation."""
+    # Setup
+    mock_client = MagicMock()
+    mock_bigquery_service_class.return_value = mock_client
+    
+    # Mock DataFrame with test data
+    test_df = pd.DataFrame({
+        'email': ['user1@example.com', 'user2@example.com'],
+        'phone': ['1234567890', '0987654321'],
+        'parichay_id': ['P123', 'P456'],
+        'course_id': ['C1', 'C2']
+    })
+    
+    mock_job = MagicMock()
+    mock_job.to_dataframe.return_value = test_df
+    mock_client.query.return_value = mock_job
+    
+    # Execute
+    result = ReportService.fetch_apar_enrolment_report(
+        enrolment_start_date='2023-01-01',
+        enrolment_end_date='2023-01-31',
+        filters={'user_email': 'test@example.com'},
+        required_columns=['email', 'phone']
+    )
+    
+    # Verify
+    assert result is not None
+    header = next(result)
+    assert 'email|phone' in header
+    
+    # Clean up generator
+    for _ in result:
+        pass
+
+
+@patch('app.services.report_service.BigQueryService')
+def test_fetch_apar_enrolment_report_with_all_filters(mock_bigquery_service_class):
+    """Test APAR enrolment report with all filter types."""
+    # Setup
+    mock_client = MagicMock()
+    mock_bigquery_service_class.return_value = mock_client
+    
+    test_df = pd.DataFrame({
+        'email': ['user1@example.com'],
+        'phone': [1234567890],
+        'parichay_id': ['P123']
+    })
+    
+    mock_job = MagicMock()
+    mock_job.to_dataframe.return_value = test_df
+    mock_client.query.return_value = mock_job
+    
+    # Execute
+    from datetime import datetime
+    start_date = datetime(2023, 1, 1)
+    end_date = datetime(2023, 1, 31)
+    
+    result = ReportService.fetch_apar_enrolment_report(
+        enrolment_start_date=start_date,
+        enrolment_end_date=end_date,
+        filters={
+            'user_email': 'test@example.com',
+            'mobile_no': '1234567890',
+            'parichay_id': 'P123'
+        },
+        required_columns=None
+    )
+    
+    # Verify
+    assert result is not None
+    mock_client.query.assert_called_once()
+    
+    # Check that query was called with job config
+    call_args = mock_client.query.call_args
+    assert 'job_config' in call_args[1]
+    
+    # Clean up generator
+    for _ in result:
+        pass
+
+
+@patch('app.services.report_service.BigQueryService')
+def test_fetch_apar_enrolment_report_no_filters(mock_bigquery_service_class):
+    """Test APAR enrolment report with no filters, only date range."""
+    # Setup
+    mock_client = MagicMock()
+    mock_bigquery_service_class.return_value = mock_client
+    
+    test_df = pd.DataFrame({
+        'email': ['user1@example.com'],
+        'phone': [1234567890]
+    })
+    
+    mock_job = MagicMock()
+    mock_job.to_dataframe.return_value = test_df
+    mock_client.query.return_value = mock_job
+    
+    # Execute
+    result = ReportService.fetch_apar_enrolment_report(
+        enrolment_start_date='2023-01-01',
+        enrolment_end_date='2023-01-31',
+        filters={},
+        required_columns=None
+    )
+    
+    # Verify
+    assert result is not None
+    mock_client.query.assert_called_once()
+    
+    # Clean up generator
+    for _ in result:
+        pass
+
+
+@patch('app.services.report_service.BigQueryService')
+def test_fetch_apar_enrolment_report_with_masking(mock_bigquery_service_class):
+    """Test APAR enrolment report with data masking."""
+    # Setup
+    mock_client = MagicMock()
+    mock_bigquery_service_class.return_value = mock_client
+    
+    test_df = pd.DataFrame({
+        'email': ['user1@example.com'],
+        'phone': [1234567890]
+    })
+    
+    mock_job = MagicMock()
+    mock_job.to_dataframe.return_value = test_df
+    mock_client.query.return_value = mock_job
+    
+    # Execute
+    result = ReportService.fetch_apar_enrolment_report(
+        enrolment_start_date='2023-01-01',
+        enrolment_end_date='2023-01-31',
+        filters={'user_email': 'test@example.com'},
+        required_columns=None
+    )
+    
+    # Verify
+    assert result is not None
+    
+    # Skip header
+    next(result)
+    
+    # Check that data is masked
+    data_row = next(result)
+    assert '@*******.**' in data_row  # Masked email domain
+    assert '******7890' in data_row  # Masked phone number
+    
+    # Clean up generator
+    try:
+        for _ in result:
+            pass
+    except StopIteration:
+        pass
+
+
+@patch('app.services.report_service.BigQueryService')
+def test_fetch_apar_enrolment_report_empty_result(mock_bigquery_service_class):
+    """Test APAR enrolment report with empty result."""
+    # Setup
+    mock_client = MagicMock()
+    mock_bigquery_service_class.return_value = mock_client
+    
+    # Empty DataFrame
+    test_df = pd.DataFrame()
+    
+    mock_job = MagicMock()
+    mock_job.to_dataframe.return_value = test_df
+    mock_client.query.return_value = mock_job
+    
+    # Execute
+    result = ReportService.fetch_apar_enrolment_report(
+        enrolment_start_date='2023-01-01',
+        enrolment_end_date='2023-01-31',
+        filters={'user_email': 'test@example.com'},
+        required_columns=None
+    )
+    
+    # Verify
+    assert result is not None  # Should still return generator even for empty data
+    mock_client.query.assert_called_once()
+
+
+@patch('app.services.report_service.BigQueryService')
+def test_fetch_apar_enrolment_report_exception(mock_bigquery_service_class):
+    """Test APAR enrolment report with exception."""
+    # Setup
+    mock_client = MagicMock()
+    mock_bigquery_service_class.return_value = mock_client
+    mock_client.query.side_effect = Exception("Query error")
+    
+    # Execute
+    result = ReportService.fetch_apar_enrolment_report(
+        enrolment_start_date='2023-01-01',
+        enrolment_end_date='2023-01-31',
+        filters={'user_email': 'test@example.com'},
+        required_columns=None
+    )
+    
+    # Verify
+    assert result is None
+    mock_client.query.assert_called_once()
+
+
+@patch('app.services.report_service.BigQueryService')
+def test_fetch_apar_enrolment_report_filtered_columns(mock_bigquery_service_class):
+    """Test APAR enrolment report with column filtering."""
+    # Setup
+    mock_client = MagicMock()
+    mock_bigquery_service_class.return_value = mock_client
+    
+    test_df = pd.DataFrame({
+        'email': ['user1@example.com'],
+        'phone': [1234567890],
+        'parichay_id': ['P123'],
+        'course_id': ['C1']
+    })
+    
+    mock_job = MagicMock()
+    mock_job.to_dataframe.return_value = test_df
+    mock_client.query.return_value = mock_job
+    
+    # Execute with specific columns
+    result = ReportService.fetch_apar_enrolment_report(
+        enrolment_start_date='2023-01-01',
+        enrolment_end_date='2023-01-31',
+        filters={'user_email': 'test@example.com'},
+        required_columns=['email', 'phone']  # Only these columns
+    )
+    
+    # Verify
+    assert result is not None
+    header = next(result)
+    assert 'email|phone' in header
+    assert 'parichay_id' not in header
+    assert 'course_id' not in header
+    
+    # Clean up generator
+    for _ in result:
+        pass

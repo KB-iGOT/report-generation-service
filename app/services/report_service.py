@@ -417,7 +417,7 @@ class ReportService:
                     yield '|'.join(cols) + '\n'
                     for row in df.itertuples(index=False, name=None):
                         row_dict = dict(zip(cols, row))
-                        if True:
+                        if IS_MASKING_ENABLED.lower() == 'true':
                             if 'email' in row_dict and row_dict['email'] is not None:
                                 parts = row_dict['email'].split('@')
                                 if len(parts) == 2:
