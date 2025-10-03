@@ -377,10 +377,7 @@ class ReportService:
                 if value and key in filter_key_map:
                     bq_col = filter_key_map[key]
                     filter_clauses.append(f"{bq_col} = @{bq_col}")
-                    if (bq_col == "phone"):
-                        params.append(bigquery.ScalarQueryParameter(bq_col, "INTEGER", value.strip()))
-                    else :
-                        params.append(bigquery.ScalarQueryParameter(bq_col, "STRING", value.strip()))
+                    params.append(bigquery.ScalarQueryParameter(bq_col, "STRING", value.strip()))       
 
             # Always add date filter
             if enrolment_start_date and enrolment_end_date:
