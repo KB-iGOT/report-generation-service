@@ -76,6 +76,8 @@ def test_get_sync_config(sync_service):
 def test_get_sync_config_missing_attributes():
     """Test getting sync configuration with missing attributes."""
     with patch.dict(os.environ, {}, clear=True), \
+         patch('app.services.GcsToBigQuerySyncService.GCP_CREDENTIALS_PATH', 'test/path.json'), \
+         patch('google.cloud.bigquery.Client') as mock_client, \
          patch('app.services.GcsToBigQuerySyncService.SYNC_TABLES', 'table1,table2'), \
          patch('app.services.GcsToBigQuerySyncService.DATASET', 'test_dataset'), \
          patch('app.services.GcsToBigQuerySyncService.Constants') as mock_constants:

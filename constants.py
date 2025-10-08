@@ -75,4 +75,11 @@ REDIS_KEY_MDO_PREFIX = os.environ.get('REDIS_KEY_MDO_PREFIX', 'igot_mdo_')
 REDIS_DEFAULT_TTL = int(os.environ.get('REDIS_DEFAULT_TTL', 14400))
 GCP_APAR_TABLE_NAME = os.environ.get('GCP_APAR_TABLE_NAME', 'master_enrolment_apar_dummy')
 MASTER_APAR_TABLE = f"{GCP_PROJECT}.{GCP_DB_NAME}.{GCP_APAR_TABLE_NAME}"
- 
+APAR_FILTER_KEY_MAP = json.loads(os.environ.get("APAR_FILTER_KEY_MAP", """
+{
+    "user_email": "email",
+    "mobile_no": "phone",
+    "parichay_id": "parichay_id",
+    "external_system_id": "external_system_id"
+}
+"""))

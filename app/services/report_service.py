@@ -1,7 +1,7 @@
 import logging
 from app.services.fetch_data_bigQuery import BigQueryService
 from app.services.redis_service import RedisService
-from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE, MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_AGE, MASTER_APAR_TABLE
+from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE, MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_AGE, MASTER_APAR_TABLE, APAR_FILTER_KEY_MAP
 import gc
 import io
 from google.cloud import bigquery
@@ -365,11 +365,7 @@ class ReportService:
                 date_filter = f" AND enrolled_on BETWEEN '{enrolment_start_date}' AND '{enrolment_end_date}'"
 
             # Map filter keys to BQ column names
-            filter_key_map = {
-                "user_email": "email",
-                "mobile_no": "phone",
-                "parichay_id": "parichay_id"
-            }
+            filter_key_map = APAR_FILTER_KEY_MAP
             filter_clauses = []
             params = []
             # Add filters if present
