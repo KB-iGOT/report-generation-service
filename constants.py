@@ -83,3 +83,4 @@ APAR_FILTER_KEY_MAP = json.loads(os.environ.get("APAR_FILTER_KEY_MAP", """
     "external_system_id": "external_system_id"
 }
 """))
+APAR_FILTER_KEY = os.environ.get("APAR_FILTER_KEY", "user_email,mobile_no,parichay_id,external_system_id")

@@ -6,7 +6,7 @@ import gc
 import ctypes
 import time as time_module
 from app.authentication.AccessTokenValidator import AccessTokenValidator
-from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED, X_ORG_ID
+from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED, X_ORG_ID, APAR_FILTER_KEY
 from app.services.GcsToBigQuerySyncService import GcsToBigQuerySyncService
 import io
 import uuid
@@ -341,7 +341,7 @@ def get_apar_report():
 
         # Validate filters keys if filters present
         if filters:
-            allowed_keys = {"user_email", "mobile_no", "parichay_id"}
+            allowed_keys = APAR_FILTER_KEY.split(',')
             for key in filters:
                 if key not in allowed_keys:
                     return jsonify({'error': f"Invalid filter key '{key}'. Allowed keys: {', '.join(allowed_keys)}"}), 400
