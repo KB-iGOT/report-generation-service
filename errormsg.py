@@ -1,0 +1,6 @@
+REQUEST_BODY_MISSING_ERROR = "Request body is missing"
+UNEXPECTED_ERROR_OCCURRED = "An unexpected error occurred. Please try again later."
+MALLOC_TRIM_HOLDER_ERROR_MSG = "malloc_trim failed: %s"
+MISSING_X_ORG_ID_HEADER = "Missing 'x_org_id' in headers."
+ORGANIZATION_ID_REQUIRED_ERROR = "Organization ID is required."
+INVALID_DATE_FORMAT_ERROR = "Invalid date format. Use YYYY-MM-DD."

@@ -28,8 +28,7 @@ class GcsToBigQuerySyncService:
                 self.merge_parquet_to_bq(
                     table_config["gcs_uri"],
                     table_config["dataset"],
-                    table_config["table"],
-                    table_config["merge_keys"]
+                    table_config["table"]
                 )
         except Exception as e:
             logger.exception(f"Error during sync: {e}")
@@ -62,7 +61,7 @@ class GcsToBigQuerySyncService:
 
         return sync_config
 
-    def merge_parquet_to_bq(self, gcs_uri, dataset, target_table, merge_keys):
+    def merge_parquet_to_bq(self, gcs_uri, dataset, target_table):
         full_target_table = f"{dataset}.{target_table}"
         try:
             # Delete the target table if it exists
