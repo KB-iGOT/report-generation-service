@@ -390,7 +390,7 @@ def test_get_user_report_success(mock_is_valid_org, mock_report_service_v2, clie
     mock_report_service_v2.generate_user_report.assert_called_once()
     args, kwargs = mock_report_service_v2.generate_user_report.call_args
     assert kwargs['email'] == 'user@example.com'
-    assert kwargs['orgId'] == 'org123'
+    assert kwargs['org_id'] == 'org123'
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")

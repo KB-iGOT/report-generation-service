@@ -170,7 +170,7 @@ def test_generate_user_report_with_filters(mock_get_mdo_id_org_list, mock_bigque
         ehrms_id=None,
         start_date='2023-01-01',
         end_date='2023-01-31',
-        orgId='org1',
+        org_id='org1',
         required_columns=['user_id', 'content_id', 'content_progress_percentage'],
         additional_filters=additional_filters
     )
@@ -303,7 +303,7 @@ def test_generate_user_report_no_data(mock_get_mdo_id_org_list, mock_bigquery_se
         ehrms_id=None,
         start_date=None,
         end_date=None,
-        orgId='org1',
+        org_id='org1',
         additional_filters={}
     )
     
@@ -423,7 +423,7 @@ def test_generate_user_report_with_invalid_org(mock_get_mdo_id_org_list, mock_bi
             email='test@example.com',
             phone=None,
             ehrms_id=None,
-            orgId='org1',
+            org_id='org1',
             additional_filters={}
         )
 
@@ -450,7 +450,7 @@ def test_generate_user_report_with_valid_org(mock_get_mdo_id_org_list, mock_bigq
         email='test@example.com',
         phone=None,
         ehrms_id=None,
-        orgId='org1',
+        org_id='org1',
         additional_filters={}
     )
     
@@ -480,7 +480,7 @@ def test_generate_user_report_with_memory_error(mock_get_mdo_id_org_list, mock_b
             email='test@example.com',
             phone=None,
             ehrms_id=None,
-            orgId='org1',
+            org_id='org1',
             additional_filters={}
         )
 
@@ -495,7 +495,7 @@ def test_generate_user_report_with_no_filters(mock_get_mdo_id_org_list, mock_big
         email=None,
         phone=None,
         ehrms_id=None,
-        orgId='org1',
+        org_id='org1',
         additional_filters={}
     )
     

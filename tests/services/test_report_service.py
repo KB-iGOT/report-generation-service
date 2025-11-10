@@ -34,7 +34,7 @@ def test_fetch_user_cumulative_report_success(mock_bigquery_service):
     # Execute
     result = ReportService.fetch_user_cumulative_report(
         email='test@example.com',
-        orgId='org1'
+        org_id='org1'
     )
     
     # Verify
@@ -80,7 +80,7 @@ def test_fetch_user_cumulative_report_with_filters(mock_bigquery_service):
         ehrms_id='EMP123',
         start_date=start_date,
         end_date=end_date,
-        orgId='org1',
+        org_id='org1',
         required_columns=['user_id', 'course_id']
     )
     
@@ -643,7 +643,7 @@ def test_fetch_user_cumulative_report_invalid_org_id(mock_bigquery_service):
         with pytest.raises(ValueError, match="Invalid organization ID for user"):
             ReportService.fetch_user_cumulative_report(
                 email='test@example.com',
-                orgId='invalid_org'
+                org_id='invalid_org'
             )
 
 
@@ -719,7 +719,7 @@ def test_fetch_user_cumulative_report_1(mock_bigquery_service):
     ehrms_id = None
     start_date = None
     end_date = None
-    orgId = None
+    org_id = None
     required_columns = None
 
     # Execute
@@ -729,7 +729,7 @@ def test_fetch_user_cumulative_report_1(mock_bigquery_service):
         ehrms_id=ehrms_id,
         start_date=start_date,
         end_date=end_date,
-        orgId=orgId,
+        org_id=org_id,
         required_columns=required_columns
     )
 
@@ -747,7 +747,7 @@ def test_fetch_user_cumulative_report_3(mock_bigquery_service):
     ehrms_id = "12345"
     start_date = "2023-01-01"
     end_date = "2023-12-31"
-    orgId = "org1"
+    org_id = "org1"
     required_columns = ["user_id", "course_id", "progress"]
 
     # Configure mock to return an empty DataFrame
@@ -760,7 +760,7 @@ def test_fetch_user_cumulative_report_3(mock_bigquery_service):
         ehrms_id=ehrms_id,
         start_date=start_date,
         end_date=end_date,
-        orgId=orgId,
+        org_id=org_id,
         required_columns=required_columns
     )
 
@@ -785,7 +785,7 @@ def test_fetch_user_cumulative_report_5(mock_bigquery_service):
         ehrms_id='EMP123',
         start_date='2023-01-01',
         end_date='2023-12-31',
-        orgId='ORG1',
+        org_id='ORG1',
         required_columns=['user_id', 'course_id']
     )
 
@@ -811,7 +811,7 @@ def test_fetch_user_cumulative_report_7(mock_bigquery_service):
             ehrms_id='EHRMS123',
             start_date='2023-01-01',
             end_date='2023-12-31',
-            orgId='org2',
+            org_id='org2',
             required_columns=['column1', 'column2']
         )
 
@@ -836,7 +836,7 @@ def test_fetch_user_cumulative_report_8(mock_bigquery_service):
         ehrms_id="EMP123",
         start_date="2023-01-01",
         end_date="2023-12-31",
-        orgId="ORG1"
+        org_id="ORG1"
     )
 
     # Verify
@@ -848,7 +848,7 @@ def test_fetch_user_cumulative_report_9(mock_bigquery_service):
     Test fetch_user_cumulative_report with specific conditions:
     - email, phone, and ehrms_id are provided
     - user is found
-    - orgId is not in user_mdo_id
+    - org_id is not in user_mdo_id
     - user_mdo_id is in mdo_id_org_list
     - start_date and end_date are not provided
     - enrollment data is empty
@@ -865,7 +865,7 @@ def test_fetch_user_cumulative_report_9(mock_bigquery_service):
             email='user@example.com',
             phone='1234567890',
             ehrms_id='EHRMS123',
-            orgId='mdo2'
+            org_id='mdo2'
         )
 
     # Verify
