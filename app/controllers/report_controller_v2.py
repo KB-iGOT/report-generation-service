@@ -7,7 +7,8 @@ import gc
 import ctypes
 import time as time_module
 from app.authentication.AccessTokenValidator import AccessTokenValidator
-from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED, X_ORG_ID
+from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED, X_ORG_ID, TEXT_CSV_HOLDER, MALLOC_TRIM_HOLDER_MSG, LIBC_SO_6
+from errormsg import REQUEST_BODY_MISSING_ERROR, UNEXPECTED_ERROR_OCCURRED, MALLOC_TRIM_HOLDER_ERROR_MSG
 
 # Configure logger
 logging.basicConfig(
@@ -27,7 +28,7 @@ def _validate_request_common(org_id):
         logger.error("Missing 'x_org_id' in headers.")
         return {'error': 'Organization ID is required.'}, 400
     
-    if not ReportService.isValidOrg(x_org_id, org_id):
+    if not ReportService.is_valid_org(x_org_id, org_id):
         logger.error(f"Invalid organization ID: {org_id}")
         return {'error': f'Not authorized to view the report for : {org_id}'}, 401
     
@@ -83,9 +84,9 @@ def get_report(org_id):
         # Parse request data
         data = request.get_json()
         if not data:
-            logger.error("Request body is missing")
-            return jsonify({'error': 'Request body is missing'}), 400
-        
+            logger.error(REQUEST_BODY_MISSING_ERROR)
+            return jsonify({'error': REQUEST_BODY_MISSING_ERROR}), 400
+
         # Parse and validate date range
         try:
             start_date, end_date, error = _parse_date_range(data)
@@ -135,7 +136,7 @@ def get_report(org_id):
 
         response = Response(
             stream_with_context(csv_data),
-            mimetype="text/csv",
+            mimetype=TEXT_CSV_HOLDER,
             headers={
                 "Content-Disposition": f'attachment; filename="report_v2_{org_id}.csv"'
             }
@@ -155,67 +156,40 @@ def get_report(org_id):
     except Exception as e:
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
-        return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
+        return jsonify({'error': UNEXPECTED_ERROR_OCCURRED, 'details': error_message}), 500
     finally: 
         gc.collect()
         try:
-            logger.info("inside malloc_trim:")
-            ctypes.CDLL("libc.so.6").malloc_trim(0)
+            logger.info(MALLOC_TRIM_HOLDER_MSG)
+            ctypes.CDLL(LIBC_SO_6).malloc_trim(0)
         except Exception as e:
-            logger.exception("malloc_trim failed: %s", str(e))
+            logger.exception(MALLOC_TRIM_HOLDER_ERROR_MSG, str(e))
 
-@report_controller_v2.route('/report/v2/user/sync/<orgId>', methods=['POST'])
-def get_user_report(orgId):
+@report_controller_v2.route('/report/v2/user/sync/<org_id>', methods=['POST'])
+def get_user_report(org_id):
     """V2 endpoint for user report with advanced filtering"""
     start_timer = time_module.time()
     try:
-        logger.info(f"Received request to generate v2 user report for orgId={orgId}")
+        logger.info(f"Received request to generate v2 user report for org_id={org_id}")
         
         # Validate request
-        validation_result = _validate_request_common(orgId)
+        validation_result = _validate_request_common(org_id)
         if validation_result:
             return jsonify(validation_result[0]), validation_result[1]
         
         # Parse and validate input parameters
-        try:
-            data = request.get_json()
-            if not data:
-                logger.error("Request body is missing")
-                return jsonify({'error': 'Request body is missing'}), 400
-        except Exception as e:
-            logger.error(f"Request body is missing: {str(e)}")
-            return jsonify({'error': 'Request body is missing'}), 400
+        data = _get_request_data()
+        if isinstance(data, Response):
+            return data
 
-        user_email = data.get('userEmail')
-        user_phone = data.get('userPhone')
-        ehrms_id = data.get('ehrmsId')
-
-        # Trim whitespace if present
-        user_email = user_email.strip() if user_email else None
-        user_phone = user_phone.strip() if user_phone else None
-        ehrms_id = ehrms_id.strip() if ehrms_id else None
-
+        user_email, user_phone, ehrms_id = _extract_user_identifiers(data)
         if not (user_email or user_phone or ehrms_id):
             logger.error("At least one of 'userEmail', 'userPhone', or 'ehrmsId' must be provided.")
             return jsonify({'error': "At least one of 'userEmail', 'userPhone', or 'ehrmsId' must be provided."}), 400
 
-        # New date filter and orgId parameter
-        start_date = data.get('start_date')
-        end_date = data.get('end_date')
-
-        # Validate date range if provided
-        if start_date and end_date:
-            try:
-                start_date = datetime.strptime(start_date, '%Y-%m-%d')
-                end_date = datetime.strptime(end_date, '%Y-%m-%d')
-                start_date = datetime.combine(start_date.date(), time.min)  # 00:00:00
-                end_date = datetime.combine(end_date.date(), time.max)      # 23:59:59.999999
-            except ValueError:
-                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
+        start_date, end_date = _validate_date_range(data)
 
         required_columns = data.get('required_columns', [])
-        
-        # Get additional filters
         additional_filters = data.get('additionalFilter', {})
         
         logger.info(f"Generating v2 user report for userEmail={user_email}, userPhone={user_phone}, ehrmsId={ehrms_id}")
@@ -228,7 +202,7 @@ def get_user_report(orgId):
                 ehrms_id=ehrms_id, 
                 start_date=start_date, 
                 end_date=end_date, 
-                orgId=orgId, 
+                org_id=org_id, 
                 required_columns=required_columns,
                 additional_filters=additional_filters
             )
@@ -249,7 +223,7 @@ def get_user_report(orgId):
             stream_with_context(csv_data),
             mimetype="text/csv",
             headers={
-                "Content-Disposition": f'attachment; filename="user-report-v2.csv"'
+                "Content-Disposition": 'attachment; filename="user-report-v2.csv"'
             }
         )
         
@@ -276,15 +250,57 @@ def get_user_report(orgId):
         except Exception as e:
             logger.exception("malloc_trim failed: %s", str(e))
 
-@report_controller_v2.route('/report/v2/org/user/<orgId>', methods=['POST'])
-def get_org_user_report(orgId):
+
+def _get_request_data():
+    """Extract and validate request data."""
+    try:
+        data = request.get_json()
+        if not data:
+            logger.error(REQUEST_BODY_MISSING_ERROR)
+            return jsonify({'error': REQUEST_BODY_MISSING_ERROR}), 400
+        return data
+    except Exception as e:
+        logger.error(f"Request body is missing: {str(e)}")
+        return jsonify({'error': REQUEST_BODY_MISSING_ERROR}), 400
+
+
+def _extract_user_identifiers(data):
+    """Extract and trim user identifiers."""
+    user_email = data.get('userEmail')
+    user_phone = data.get('userPhone')
+    ehrms_id = data.get('ehrmsId')
+
+    user_email = user_email.strip() if user_email else None
+    user_phone = user_phone.strip() if user_phone else None
+    ehrms_id = ehrms_id.strip() if ehrms_id else None
+
+    return user_email, user_phone, ehrms_id
+
+
+def _validate_date_range(data):
+    """Validate and parse date range."""
+    start_date = data.get('start_date')
+    end_date = data.get('end_date')
+
+    if start_date and end_date:
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+            start_date = datetime.combine(start_date.date(), time.min)  # 00:00:00
+            end_date = datetime.combine(end_date.date(), time.max)      # 23:59:59.999999
+        except ValueError:
+            raise ValueError('Invalid date format. Use YYYY-MM-DD.')
+    return start_date, end_date
+
+@report_controller_v2.route('/report/v2/org/user/<org_id>', methods=['POST'])
+def get_org_user_report(org_id):
     """V2 endpoint for organization user report with advanced filtering"""
     start_timer = time_module.time()
     try:
-        logger.info(f"Received request to generate v2 organization user report for orgId={orgId}")
+        logger.info(f"Received request to generate v2 organization user report for org_id={org_id}")
         
         # Validate request
-        validation_result = _validate_request_common(orgId)
+        validation_result = _validate_request_common(org_id)
         if validation_result:
             return jsonify(validation_result[0]), validation_result[1]
         
@@ -318,12 +334,12 @@ def get_org_user_report(orgId):
         # Get additional filters
         additional_filters = data.get('additionalFilter', {})
         
-        logger.info(f"Generating v2 organization user report for orgId={orgId}")
+        logger.info(f"Generating v2 organization user report for orgId={org_id}")
         logger.info(f"Additional filters: {additional_filters}")
         
         try:
             csv_data = ReportServiceV2.generate_org_user_report(
-                mdo_id=orgId, 
+                mdo_id=org_id, 
                 is_full_report_required=is_full_report_required, 
                 required_columns=required_columns, 
                 user_creation_start_date=user_creation_start_date, 
@@ -332,7 +348,7 @@ def get_org_user_report(orgId):
             )
 
             if not csv_data:
-                logger.warning(f"No data found for orgId={orgId}")
+                logger.warning(f"No data found for org_id={org_id}")
                 return jsonify({'error': 'No data found for the given org details and filters.'}), 404
 
         except Exception as e:
@@ -341,13 +357,13 @@ def get_org_user_report(orgId):
             return jsonify({'error': 'Failed to generate the report due to an internal error.', 'details': error_message}), 500
 
         time_taken = round(time_module.time() - start_timer, 2)
-        logger.info(f"V2 Org User Report generated successfully in {time_taken} seconds for orgId={orgId}")
+        logger.info(f"V2 Org User Report generated successfully in {time_taken} seconds for org_id={org_id}")
 
         response = Response(
             stream_with_context(csv_data),
             mimetype="text/csv",
             headers={
-                "Content-Disposition": f'attachment; filename="user-org-report-v2.csv"'
+                "Content-Disposition": 'attachment; filename="user-org-report-v2.csv"'
             }
         )
         

@@ -39,7 +39,7 @@ def test_get_report_success(mock_report_service, mock_report_service_v2, client)
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_report_unauthorized_org_id(mock_is_valid_org, mock_report_service_v2, client):
     """Dummy test for unauthorized organization ID."""
@@ -50,7 +50,7 @@ import json
 from unittest.mock import patch
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", new="false")
 def test_get_report_missing_x_org_id(mock_is_valid_org, mock_report_service_v2, client):
     """Test report generation with missing x-org-id header."""
@@ -84,7 +84,7 @@ def test_get_report_missing_x_org_id(mock_is_valid_org, mock_report_service_v2, 
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "true")
 @patch("app.controllers.report_controller_v2.AccessTokenValidator")
 def test_get_report_with_auth_success(mock_validator, mock_is_valid_org, mock_report_service_v2, client):
@@ -114,7 +114,7 @@ def test_get_report_with_auth_success(mock_validator, mock_is_valid_org, mock_re
 
 
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "true")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 def test_get_report_missing_auth_token(mock_is_valid_org, client):
     """Test report generation with missing auth token."""
     # Setup
@@ -139,7 +139,7 @@ def test_get_report_missing_auth_token(mock_is_valid_org, client):
 
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "true")
 @patch("app.controllers.report_controller_v2.AccessTokenValidator")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 def test_get_report_invalid_auth_token(mock_is_valid_org, mock_validator, client):
     """Test report generation with invalid auth token."""
     # Setup
@@ -168,7 +168,7 @@ def test_get_report_invalid_auth_token(mock_is_valid_org, mock_validator, client
 
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "true")
 @patch("app.controllers.report_controller_v2.AccessTokenValidator")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 def test_get_report_unauthorized_org(mock_is_valid_org, mock_validator, client):
     """Test report generation with unauthorized organization."""
     # Setup
@@ -195,7 +195,7 @@ def test_get_report_unauthorized_org(mock_is_valid_org, mock_validator, client):
     mock_is_valid_org.assert_called_once_with('org789', 'org123')
 
 
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 def test_get_report_missing_dates(mock_is_valid_org, client):
     """Test report generation with missing date parameters."""
     # Setup
@@ -210,7 +210,7 @@ def test_get_report_missing_dates(mock_is_valid_org, client):
     assert 'Request body is missing' in data['error']
 
 
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 def test_get_report_invalid_date_format(mock_is_valid_org, client):
     """Test report generation with invalid date format."""
     # Setup
@@ -232,7 +232,7 @@ def test_get_report_invalid_date_format(mock_is_valid_org, client):
     assert 'Invalid Request.' in data['error']
 
 
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 def test_get_report_missing_required_fields(mock_is_valid_org, client):
     """Test report generation with missing required fields."""
     # Setup
@@ -253,7 +253,7 @@ def test_get_report_missing_required_fields(mock_is_valid_org, client):
     assert 'Invalid input' in data['error']
 
 
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_report_date_range_exceeds_limit(mock_is_valid_org, client):
     """Test report generation with date range exceeding 1 year."""
@@ -279,7 +279,7 @@ def test_get_report_date_range_exceeds_limit(mock_is_valid_org, client):
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_report_no_data_found(mock_is_valid_org, mock_report_service_v2, client):
     """Test report generation when no data is found."""
@@ -305,7 +305,7 @@ def test_get_report_no_data_found(mock_is_valid_org, mock_report_service_v2, cli
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_report_service_exception(mock_is_valid_org, mock_report_service_v2, client):
     """Test report generation when service throws an exception."""
@@ -331,7 +331,7 @@ def test_get_report_service_exception(mock_is_valid_org, mock_report_service_v2,
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_report_file_not_found(mock_is_valid_org, mock_report_service_v2, client):
     """Test report generation when file is not found."""
@@ -358,7 +358,7 @@ def test_get_report_file_not_found(mock_is_valid_org, mock_report_service_v2, cl
 
 # Tests for user report endpoint
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_user_report_success(mock_is_valid_org, mock_report_service_v2, client):
     """Test successful user report generation."""
@@ -390,11 +390,11 @@ def test_get_user_report_success(mock_is_valid_org, mock_report_service_v2, clie
     mock_report_service_v2.generate_user_report.assert_called_once()
     args, kwargs = mock_report_service_v2.generate_user_report.call_args
     assert kwargs['email'] == 'user@example.com'
-    assert kwargs['orgId'] == 'org123'
+    assert kwargs['org_id'] == 'org123'
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_user_report_with_phone(mock_is_valid_org, mock_report_service_v2, client):
     """Test user report generation with phone number."""
@@ -421,7 +421,7 @@ def test_get_user_report_with_phone(mock_is_valid_org, mock_report_service_v2, c
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_user_report_with_ehrms_id(mock_is_valid_org, mock_report_service_v2, client):
     """Test user report generation with EHRMS ID."""
@@ -448,7 +448,7 @@ def test_get_user_report_with_ehrms_id(mock_is_valid_org, mock_report_service_v2
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_user_report_missing_user_identifiers(mock_is_valid_org, mock_report_service_v2, client):
     """Test user report generation with missing user identifiers."""
@@ -472,7 +472,7 @@ def test_get_user_report_missing_user_identifiers(mock_is_valid_org, mock_report
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_user_report_invalid_date_format(mock_is_valid_org, mock_report_service_v2, client):
     """Test user report generation with invalid date format."""
@@ -498,7 +498,7 @@ def test_get_user_report_invalid_date_format(mock_is_valid_org, mock_report_serv
 
 # Tests for org user report endpoint
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_org_user_report_success(mock_is_valid_org, mock_report_service_v2, client):
     """Test successful organization user report generation."""
@@ -536,7 +536,7 @@ def test_get_org_user_report_success(mock_is_valid_org, mock_report_service_v2, 
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_org_user_report_invalid_date_format(mock_is_valid_org, mock_report_service_v2, client):
     """Test org user report generation with invalid date format."""
@@ -585,7 +585,7 @@ def test_get_org_user_report_no_data_found(mock_is_valid_org, mock_report_servic
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_org_user_report_service_exception(mock_is_valid_org, mock_report_service_v2, client):
     """Test org user report generation when service throws an exception."""
@@ -609,7 +609,7 @@ def test_get_org_user_report_service_exception(mock_is_valid_org, mock_report_se
     assert 'Failed to generate the report' in data['error']
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_report_general_exception(mock_is_valid_org, mock_report_service_v2, client):
     """Test report generation when a general exception occurs."""
@@ -635,7 +635,7 @@ def test_get_report_general_exception(mock_is_valid_org, mock_report_service_v2,
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 @patch("app.controllers.report_controller_v2.ctypes.CDLL")
 def test_get_report_malloc_trim_exception(mock_cdll, mock_is_valid_org, mock_report_service_v2, client):
@@ -664,7 +664,7 @@ def test_get_report_malloc_trim_exception(mock_cdll, mock_is_valid_org, mock_rep
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_user_report_service_exception(mock_is_valid_org, mock_report_service_v2, client):
     """Dummy test for user report service exception."""
@@ -672,14 +672,14 @@ def test_get_user_report_service_exception(mock_is_valid_org, mock_report_servic
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_org_user_report_no_request_body(mock_is_valid_org, mock_report_service_v2, client):
      assert True  # Dummy assertion
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 @patch("app.controllers.report_controller_v2.ctypes.CDLL")
 def test_get_org_user_report_malloc_trim_exception(mock_cdll, mock_is_valid_org, mock_report_service_v2, client):
@@ -707,7 +707,7 @@ def test_get_org_user_report_malloc_trim_exception(mock_cdll, mock_is_valid_org,
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_org_user_report_key_error(mock_is_valid_org, mock_report_service_v2, client):
     """Dummy test for org user report key error."""
@@ -715,7 +715,7 @@ def test_get_org_user_report_key_error(mock_is_valid_org, mock_report_service_v2
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_report_with_invalid_json(mock_is_valid_org, mock_report_service_v2, client):
     """Test report generation with invalid JSON."""
@@ -738,7 +738,7 @@ def test_get_report_with_invalid_json(mock_is_valid_org, mock_report_service_v2,
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
-@patch("app.services.report_service.ReportService.isValidOrg")
+@patch("app.services.report_service.ReportService.is_valid_org")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_report_with_empty_data(mock_is_valid_org, mock_report_service_v2, client):
     """Test report generation with empty data."""

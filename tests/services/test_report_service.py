@@ -34,7 +34,7 @@ def test_fetch_user_cumulative_report_success(mock_bigquery_service):
     # Execute
     result = ReportService.fetch_user_cumulative_report(
         email='test@example.com',
-        orgId='org1'
+        org_id='org1'
     )
     
     # Verify
@@ -80,7 +80,7 @@ def test_fetch_user_cumulative_report_with_filters(mock_bigquery_service):
         ehrms_id='EMP123',
         start_date=start_date,
         end_date=end_date,
-        orgId='org1',
+        org_id='org1',
         required_columns=['user_id', 'course_id']
     )
     
@@ -485,11 +485,11 @@ def test_get_mdo_id_org_list(mock_redis_service, mock_bigquery_service):
 
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
-def test_isValidOrg_success(mock_get_mdo_list, mock_bigquery_service):
+def test_is_valid_org_success(mock_get_mdo_list, mock_bigquery_service):
     """
-    Test that isValidOrg returns True when request_org_id is in the org_list.
+    Test that is_valid_org returns True when request_org_id is in the org_list.
 
-    This test verifies that the isValidOrg method correctly identifies
+    This test verifies that the is_valid_org method correctly identifies
     when a given request_org_id is present in the list of organizations
     associated with the x_org_id, including the x_org_id itself.
     """
@@ -502,7 +502,7 @@ def test_isValidOrg_success(mock_get_mdo_list, mock_bigquery_service):
     mock_get_mdo_list.return_value = mock_org_list
 
     # Execute
-    result = ReportService.isValidOrg(x_org_id, request_org_id)
+    result = ReportService.is_valid_org(x_org_id, request_org_id)
 
     # Verify
     assert result is True
@@ -510,9 +510,9 @@ def test_isValidOrg_success(mock_get_mdo_list, mock_bigquery_service):
 
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
-def test_isValidOrg_failure(mock_get_mdo_list, mock_bigquery_service):
+def test_is_valid_org_failure(mock_get_mdo_list, mock_bigquery_service):
     """
-    Test that isValidOrg returns False when request_org_id is not in the org_list.
+    Test that is_valid_org returns False when request_org_id is not in the org_list.
     """
     # Setup
     x_org_id = "org1"
@@ -523,7 +523,7 @@ def test_isValidOrg_failure(mock_get_mdo_list, mock_bigquery_service):
     mock_get_mdo_list.return_value = mock_org_list
 
     # Execute
-    result = ReportService.isValidOrg(x_org_id, request_org_id)
+    result = ReportService.is_valid_org(x_org_id, request_org_id)
 
     # Verify
     assert result is False
@@ -531,9 +531,9 @@ def test_isValidOrg_failure(mock_get_mdo_list, mock_bigquery_service):
 
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
-def test_isValidOrg_with_x_org_id(mock_get_mdo_list, mock_bigquery_service):
+def test_is_valid_org_with_x_org_id(mock_get_mdo_list, mock_bigquery_service):
     """
-    Test that isValidOrg returns True when request_org_id is the same as x_org_id.
+    Test that is_valid_org returns True when request_org_id is the same as x_org_id.
     """
     # Setup
     x_org_id = "org1"
@@ -544,7 +544,7 @@ def test_isValidOrg_with_x_org_id(mock_get_mdo_list, mock_bigquery_service):
     mock_get_mdo_list.return_value = mock_org_list
 
     # Execute
-    result = ReportService.isValidOrg(x_org_id, request_org_id)
+    result = ReportService.is_valid_org(x_org_id, request_org_id)
 
     # Verify
     assert result is True
@@ -553,49 +553,49 @@ def test_isValidOrg_with_x_org_id(mock_get_mdo_list, mock_bigquery_service):
 
 
 @patch('app.services.report_service.BigQueryService')
-def test_isValidOrg_exception_handling(mock_bigquery_service_class):
+def test_is_valid_org_exception_handling(mock_bigquery_service_class):
     """
-    Test that isValidOrg handles exceptions and returns False when an error occurs.
+    Test that is_valid_org handles exceptions and returns False when an error occurs.
     """
     # Setup
     mock_bigquery_service_class.side_effect = Exception("Test exception")
 
     # Execute
-    result = ReportService.isValidOrg("org1", "org2")
+    result = ReportService.is_valid_org("org1", "org2")
 
     # Verify
     assert result is False
     mock_bigquery_service_class.assert_called_once()
 
 
-def test_isValidOrg_missing_org_id():
+def test_is_valid_org_missing_org_id():
     """
-    Test that isValidOrg returns False when request_org_id is None or empty.
+    Test that is_valid_org returns False when request_org_id is None or empty.
     """
     with patch('app.services.report_service.BigQueryService') as mock_bigquery:
         # Test with None
-        result1 = ReportService.isValidOrg("org1", None)
+        result1 = ReportService.is_valid_org("org1", None)
         assert result1 is False
         
         # Test with empty string
-        result2 = ReportService.isValidOrg("org1", "")
+        result2 = ReportService.is_valid_org("org1", "")
         assert result2 is False
         
         # Verify that BigQueryService was not called
         mock_bigquery.assert_not_called()
 
 
-def test_isValidOrg_missing_x_org_id():
+def test_is_valid_org_missing_x_org_id():
     """
-    Test that isValidOrg returns False when x_org_id is None or empty.
+    Test that is_valid_org returns False when x_org_id is None or empty.
     """
     with patch('app.services.report_service.BigQueryService') as mock_bigquery:
         # Test with None x_org_id
-        result1 = ReportService.isValidOrg(None, "org1")
+        result1 = ReportService.is_valid_org(None, "org1")
         assert result1 is False
         
         # Test with empty x_org_id
-        result2 = ReportService.isValidOrg("", "org1")
+        result2 = ReportService.is_valid_org("", "org1")
         assert result2 is False
         
         # Verify that BigQueryService was not called
@@ -643,7 +643,7 @@ def test_fetch_user_cumulative_report_invalid_org_id(mock_bigquery_service):
         with pytest.raises(ValueError, match="Invalid organization ID for user"):
             ReportService.fetch_user_cumulative_report(
                 email='test@example.com',
-                orgId='invalid_org'
+                org_id='invalid_org'
             )
 
 
@@ -719,7 +719,7 @@ def test_fetch_user_cumulative_report_1(mock_bigquery_service):
     ehrms_id = None
     start_date = None
     end_date = None
-    orgId = None
+    org_id = None
     required_columns = None
 
     # Execute
@@ -729,7 +729,7 @@ def test_fetch_user_cumulative_report_1(mock_bigquery_service):
         ehrms_id=ehrms_id,
         start_date=start_date,
         end_date=end_date,
-        orgId=orgId,
+        org_id=org_id,
         required_columns=required_columns
     )
 
@@ -747,7 +747,7 @@ def test_fetch_user_cumulative_report_3(mock_bigquery_service):
     ehrms_id = "12345"
     start_date = "2023-01-01"
     end_date = "2023-12-31"
-    orgId = "org1"
+    org_id = "org1"
     required_columns = ["user_id", "course_id", "progress"]
 
     # Configure mock to return an empty DataFrame
@@ -760,7 +760,7 @@ def test_fetch_user_cumulative_report_3(mock_bigquery_service):
         ehrms_id=ehrms_id,
         start_date=start_date,
         end_date=end_date,
-        orgId=orgId,
+        org_id=org_id,
         required_columns=required_columns
     )
 
@@ -785,7 +785,7 @@ def test_fetch_user_cumulative_report_5(mock_bigquery_service):
         ehrms_id='EMP123',
         start_date='2023-01-01',
         end_date='2023-12-31',
-        orgId='ORG1',
+        org_id='ORG1',
         required_columns=['user_id', 'course_id']
     )
 
@@ -811,7 +811,7 @@ def test_fetch_user_cumulative_report_7(mock_bigquery_service):
             ehrms_id='EHRMS123',
             start_date='2023-01-01',
             end_date='2023-12-31',
-            orgId='org2',
+            org_id='org2',
             required_columns=['column1', 'column2']
         )
 
@@ -836,7 +836,7 @@ def test_fetch_user_cumulative_report_8(mock_bigquery_service):
         ehrms_id="EMP123",
         start_date="2023-01-01",
         end_date="2023-12-31",
-        orgId="ORG1"
+        org_id="ORG1"
     )
 
     # Verify
@@ -848,7 +848,7 @@ def test_fetch_user_cumulative_report_9(mock_bigquery_service):
     Test fetch_user_cumulative_report with specific conditions:
     - email, phone, and ehrms_id are provided
     - user is found
-    - orgId is not in user_mdo_id
+    - org_id is not in user_mdo_id
     - user_mdo_id is in mdo_id_org_list
     - start_date and end_date are not provided
     - enrollment data is empty
@@ -865,7 +865,7 @@ def test_fetch_user_cumulative_report_9(mock_bigquery_service):
             email='user@example.com',
             phone='1234567890',
             ehrms_id='EHRMS123',
-            orgId='mdo2'
+            org_id='mdo2'
         )
 
     # Verify

@@ -84,3 +84,8 @@ APAR_FILTER_KEY_MAP = json.loads(os.environ.get("APAR_FILTER_KEY_MAP", """
 }
 """))
 APAR_FILTER_KEY = os.environ.get("APAR_FILTER_KEY", "user_email,mobile_no,parichay_id,external_system_id")
+TEXT_CSV_HOLDER = 'text/csv'
+MALLOC_TRIM_HOLDER_MSG = 'inside malloc_trim'
+LIBC_SO_6 = 'libc.so.6'
+AND = 'AND'
+CLEANUP_MESSAGE = "Cleaned up DataFrame after streaming."

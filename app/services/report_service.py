@@ -1,10 +1,28 @@
+import gc
 import logging
+from datetime import datetime
+from typing import Dict, Generator, List, Optional, Union
+
+import pandas as pd
+
 from app.services.fetch_data_bigQuery import BigQueryService
 from app.services.redis_service import RedisService
-from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE, MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_AGE, MASTER_APAR_TABLE, APAR_FILTER_KEY_MAP
-import gc
-import io
+from app.services.data_helper import generate_csv_stream, filter_required_columns
+from app.services.query_helper import build_user_filter
+
+
+from constants import (
+    MASTER_ENROLMENTS_TABLE,
+    MASTER_USER_TABLE,
+    MASTER_ORG_HIERARCHY_TABLE,
+    IS_MASKING_ENABLED,
+    MAX_ORG_CACHE_AGE,
+    MASTER_APAR_TABLE,
+    APAR_FILTER_KEY_MAP,
+    CLEANUP_MESSAGE
+)
 from google.cloud import bigquery
+from typing import Optional, List, Dict, Any, Generator
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,104 +33,85 @@ class ReportService:
     logger = logging.getLogger(__name__)
 
     @staticmethod
-    def fetch_user_cumulative_report(email=None, phone=None, ehrms_id=None, start_date=None, end_date=None, orgId=None, required_columns=None):
+    def fetch_user_cumulative_report(
+        email: Optional[str] = None,
+        phone: Optional[str] = None,
+        ehrms_id: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        org_id: Optional[str] = None,
+        required_columns: Optional[List[str]] = None
+    ) -> Optional[Generator[str, None, None]]:
+        """Fetch cumulative report for a user with optional filters"""
         try:
-            # Check if any user filter is provided
+            # Validate input
             if not any([email, phone, ehrms_id]):
-                ReportService.logger.info("No user filters provided for fetching user data.")
+                ReportService.logger.info("No user filters provided")
                 return None
 
             bigquery_service = BigQueryService()
 
-            # Build filters for user details
-            user_filters = []
-            if email:
-                user_filters.append(f"email = '{email}'")
-            if phone:
-                user_filters.append(f"phone_number = '{phone}'")
-            if ehrms_id:
-                user_filters.append(f"external_system_id = '{ehrms_id}'")
-
+            # Build and execute user query
+            user_filters = build_user_filter(email, phone, ehrms_id)
             if not user_filters:
-                ReportService.logger.info("No valid filters provided for fetching user data.")
+                ReportService.logger.info("No valid filters provided")
                 return None
 
-            # Construct the query for fetching user data
-            user_filter_query = ' AND '.join(user_filters)
             user_query = f"""
                 SELECT user_id, mdo_id
                 FROM `{MASTER_USER_TABLE}`
-                WHERE {user_filter_query}
+                WHERE {" AND ".join(user_filters)}
             """
 
             ReportService.logger.info(f"Executing user query: {user_query}")
             user_df = bigquery_service.run_query(user_query)
 
             if user_df.empty:
-                ReportService.logger.info("No users found matching the provided filters.")
+                ReportService.logger.info("No matching users found")
                 return None
 
+            # Process user data
             user_ids = user_df["user_id"].tolist()
-            ReportService.logger.info(f"Fetched {len(user_ids)} users.")
-            
-            # Get the user's MDO ID
-            user_mdo_id = user_df["mdo_id"].iloc[0]  # Get the first user's MDO ID
-            
-            # Check if organization ID is valid
-            if orgId and orgId != user_mdo_id:
-                mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, orgId))
-                mdo_id_org_list.append(orgId)  # Include the orgId itself
-                
+            user_mdo_id = user_df["mdo_id"].iloc[0]
+            ReportService.logger.info(f"Found {len(user_ids)} users")
+
+            # Validate organization
+            if org_id and org_id != user_mdo_id:
+                mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, org_id))
+                mdo_id_org_list.append(org_id)
                 if user_mdo_id not in mdo_id_org_list:
-                    ReportService.logger.error(f"Invalid organization ID for user: {orgId}")
-                    raise ValueError(f"Invalid organization ID for user: {orgId}")
-            
-            # Construct the query for fetching enrollment data
+                    raise ValueError(f"Invalid organization ID for user: {org_id}")
+
+            # Build and execute enrollment query
+            user_ids_str = ', '.join(f"'{uid}'" for uid in user_ids)
+            where_parts = [f"user_id IN ({user_ids_str})"]
+            if start_date and end_date:
+                where_parts.append(f"enrolled_on BETWEEN '{start_date}' AND '{end_date}'")
+
             enrollment_query = f"""
                 SELECT *
                 FROM `{MASTER_ENROLMENTS_TABLE}`
-                WHERE user_id IN ({', '.join([f"'{uid}'" for uid in user_ids])})
+                WHERE {" AND ".join(where_parts)}
             """
-
-            if start_date and end_date:
-                enrollment_query += f" AND enrolled_on BETWEEN '{start_date}' AND '{end_date}'"
 
             ReportService.logger.info(f"Executing enrollment query: {enrollment_query}")
             enrollment_df = bigquery_service.run_query(enrollment_query)
 
             if enrollment_df.empty:
-                ReportService.logger.info("No enrollment data found for the given user.")
+                ReportService.logger.info("No enrollment data found")
                 return None
 
-            # Filter columns if specified
-            if required_columns:
-                existing_columns = [col for col in required_columns if col in enrollment_df.columns]
-                missing_columns = list(set(required_columns) - set(existing_columns))
-                if missing_columns:
-                    ReportService.logger.info(f"Warning: Missing columns skipped: {missing_columns}")
-                merged_df = enrollment_df[existing_columns]
-            else:
-                merged_df = enrollment_df
-
-            def generate_csv_stream(df, cols):
-                try:
-                    yield '|'.join(cols) + '\n'
-                    for row in df.itertuples(index=False, name=None):
-                        yield '|'.join(map(str, row)) + '\n'
-                finally:
-                    # Safe cleanup after generator is fully consumed
-                    df.drop(df.index, inplace=True)
-                    del df
-                    gc.collect()
-                    ReportService.logger.info("Cleaned up DataFrame after streaming.")
+            # Process results
+            result_df = filter_required_columns(enrollment_df, required_columns or [])
+            return generate_csv_stream(result_df, result_df.columns.tolist())
 
             ReportService.logger.info(f"CSV stream generated with {len(merged_df)} rows.")
 
             # Return CSV content without closing the stream
             return generate_csv_stream(merged_df, merged_df.columns.tolist())
 
-        except MemoryError as me:
-            ReportService.logger.error("MemoryError encountered. Consider processing data in smaller chunks.")
+        except MemoryError:
+            ReportService.logger.error("Memory error while running query")
             raise
         except Exception as e:
             ReportService.logger.error(f"Error generating cumulative report: {e}")
@@ -172,8 +171,8 @@ class ReportService:
                 finally:
                     df.drop(df.index, inplace=True)
                     del df
-                    gc.collect()
-                    ReportService.logger.info("Cleaned up DataFrame after streaming.")
+                    ReportService.logger.info(CLEANUP_MESSAGE)
+                    ReportService.logger.info(CLEANUP_MESSAGE)
 
             ReportService.logger.info(f"CSV stream generated with {len(result_df)} rows.")
             return generate_csv_stream(result_df, result_df.columns.tolist())
@@ -183,86 +182,91 @@ class ReportService:
             return None
 
     @staticmethod
-    def fetch_master_user_data(mdo_id,  is_full_report_required, required_columns=None, user_creation_start_date=None, user_creation_end_date=None):
+    def fetch_master_user_data(mdo_id, is_full_report_required, required_columns=None, user_creation_start_date=None, user_creation_end_date=None):
         try:
             bigquery_service = BigQueryService()
-            # Add date filtering to the query if start_date and end_date are provided
-            date_filter = ""
-            if user_creation_start_date and user_creation_end_date:
-                date_filter = f" AND user_registration_date BETWEEN '{user_creation_start_date}' AND '{user_creation_end_date}'"
-            if is_full_report_required:
-                mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, mdo_id))
-                mdo_id_org_list.append(mdo_id) 
-            else: 
-                mdo_id_org_list = [mdo_id]   
-            
-            mdo_id_list = [f"'{mid}'" for mid in mdo_id_org_list]  # Quote each ID
-            mdo_id_str = ', '.join(mdo_id_list)  # Join them with commas
-            query = f"""
-                SELECT * 
-                FROM `{MASTER_USER_TABLE}`
-                WHERE mdo_id in ({mdo_id_str}){date_filter}
-            """
+            date_filter = ReportService._build_date_filter(user_creation_start_date, user_creation_end_date)
+            mdo_id_org_list = ReportService._get_mdo_id_list(bigquery_service, mdo_id, is_full_report_required)
+            query = ReportService._build_user_data_query(mdo_id_org_list, date_filter)
 
             ReportService.logger.info(f"Executing query: {query}")
-
-            # Update to use run_query instead of execute_query
             result_df = bigquery_service.run_query(query)
 
             if result_df.empty:
-                ReportService.logger.info("No data found for user the given mdo_id and date range.")
+                ReportService.logger.info("No data found for the given mdo_id and date range.")
                 return None
 
-            ReportService.logger.info(f"Fetched {len(result_df)} rows from master_enrolments_data.")
-
-            # Filter the result DataFrame to include only the required columns
-            if required_columns:
-                existing_columns = [col for col in required_columns if col in result_df.columns]
-                missing_columns = list(set(required_columns) - set(existing_columns))
-                if missing_columns:
-                    ReportService.logger.info(f"Warning: Missing columns skipped: {missing_columns}")
-                result_df = result_df[existing_columns]
-
-            # Generate CSV stream from the result DataFrame
-            def generate_csv_stream(df, cols):
-                try:
-                    yield '|'.join(cols) + '\n'
-                    for row in df.itertuples(index=False, name=None):
-                        row_dict = dict(zip(cols, row))
-                        if IS_MASKING_ENABLED.lower() == 'true':
-                        # Mask email
-                            if 'email' in row_dict and row_dict['email']:
-                                parts = row_dict['email'].split('@')
-                                if len(parts) == 2:
-                                    domain_parts = parts[1].split('.')
-                                    masked_domain = '.'.join(['*' * len(part) for part in domain_parts])
-                                    row_dict['email'] = f"{parts[0]}@{masked_domain}"
-                                else:
-                                    row_dict['email'] = parts[0]
-
-                            # Mask phone number: e.g., ******2245
-                            if 'phone_number' in row_dict and row_dict['phone_number']:
-                                phone = str(row_dict['phone_number'])
-                                if len(phone) >= 4:
-                                    row_dict['phone_number'] = '*' * (len(phone) - 4) + phone[-4:]
-                                else:
-                                    row_dict['phone_number'] = '*' * len(phone)
-
-                        # Convert back to row and yield
-                        yield '|'.join([str(row_dict.get(col, '')) for col in cols]) + '\n'
-                finally:
-                    df.drop(df.index, inplace=True)
-                    del df
-                    gc.collect()
-                    ReportService.logger.info("Cleaned up DataFrame after streaming.")
-            ReportService.logger.info(f"CSV stream generated with {len(result_df)} rows.")
-
-            # Return CSV content without closing the stream
-            return generate_csv_stream(result_df, result_df.columns.tolist())
+            ReportService.logger.info(f"Fetched {len(result_df)} rows from master_user_data.")
+            result_df = ReportService._filter_columns(result_df, required_columns)
+            return ReportService._generate_csv_stream(result_df)
 
         except Exception as e:
             ReportService.logger.error(f"Error fetching master user data: {e}")
             return None
+
+    @staticmethod
+    def _build_date_filter(start_date, end_date):
+        if start_date and end_date:
+            return f" AND user_registration_date BETWEEN '{start_date}' AND '{end_date}'"
+        return ""
+
+    @staticmethod
+    def _get_mdo_id_list(bigquery_service, mdo_id, is_full_report_required):
+        if is_full_report_required:
+            mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, mdo_id))
+            mdo_id_org_list.append(mdo_id)
+        else:
+            mdo_id_org_list = [mdo_id]
+        return mdo_id_org_list
+
+    @staticmethod
+    def _build_user_data_query(mdo_id_org_list, date_filter):
+        mdo_id_list = [f"'{mid}'" for mid in mdo_id_org_list]
+        mdo_id_str = ', '.join(mdo_id_list)
+        return f"""
+            SELECT * 
+            FROM `{MASTER_USER_TABLE}`
+            WHERE mdo_id in ({mdo_id_str}){date_filter}
+        """
+
+    @staticmethod
+    def _filter_columns(df, required_columns):
+        if required_columns:
+            existing_columns = [col for col in required_columns if col in df.columns]
+            missing_columns = list(set(required_columns) - set(existing_columns))
+            if missing_columns:
+                ReportService.logger.info(f"Warning: Missing columns skipped: {missing_columns}")
+            return df[existing_columns]
+        return df
+
+    @staticmethod
+    def _generate_csv_stream(df):
+        try:
+            yield '|'.join(df.columns.tolist()) + '\n'
+            for row in df.itertuples(index=False, name=None):
+                row_dict = dict(zip(df.columns, row))
+                if IS_MASKING_ENABLED.lower() == 'true':
+                    row_dict = ReportService._mask_sensitive_data(row_dict)
+                yield '|'.join([str(row_dict.get(col, '')) for col in df.columns]) + '\n'
+        finally:
+            df.drop(df.index, inplace=True)
+            del df
+            gc.collect()
+            ReportService.logger.info("Cleaned up DataFrame after streaming.")
+
+    @staticmethod
+    def _mask_sensitive_data(row_dict):
+        if 'email' in row_dict and row_dict['email']:
+            parts = row_dict['email'].split('@')
+            if len(parts) == 2:
+                domain_parts = parts[1].split('.')
+                masked_domain = '.'.join(['*' * len(part) for part in domain_parts])
+                row_dict['email'] = f"{parts[0]}@{masked_domain}"
+        if 'phone_number' in row_dict and row_dict['phone_number']:
+            phone = str(row_dict['phone_number'])
+            if len(phone) >= 4:
+                row_dict['phone_number'] = '*' * (len(phone) - 4) + phone[-4:]
+        return row_dict
 
 
     @staticmethod
@@ -322,14 +326,18 @@ class ReportService:
         return mdo_id_org_list
 
     @staticmethod
-    def isValidOrg(x_org_id, request_org_id):
+    def is_valid_org(x_org_id: str, request_org_id: str) -> bool:
+        """Validate if the given organization ID is valid for the request"""
         try:
             # Check for None or empty request_org_id
             if not request_org_id:
                 ReportService.logger.error("request_org_id is None or empty")
                 return False
+
+            # Debug logging
             ReportService.logger.debug(f"request_org_id={request_org_id}, type={type(request_org_id)}")
             ReportService.logger.debug(f"x_org_id={x_org_id}, type={type(x_org_id)}")
+
             # Ensure x_org_id is valid
             if not x_org_id:
                 ReportService.logger.error("x_org_id is None or empty")
@@ -341,6 +349,7 @@ class ReportService:
             org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, x_org_id))
             org_list.append(x_org_id)  # Add input mdo_id to the list
             ReportService.logger.info(f"The OrgId list for {request_org_id}: {len(org_list)}")
+            
             # Check if request_org_id is in the organization list
             is_valid = request_org_id in org_list
             ReportService.logger.debug(f"Validation result for org_id {request_org_id}: {is_valid}")
@@ -359,84 +368,72 @@ class ReportService:
             client = BigQueryService()
             table = MASTER_APAR_TABLE
 
-            # Build dynamic filter clauses and parameters
-            date_filter = ""
-            if enrolment_start_date and enrolment_end_date:
-                date_filter = f" AND enrolled_on BETWEEN '{enrolment_start_date}' AND '{enrolment_end_date}'"
+            # Build query and parameters
+            query, params = ReportService._build_apar_query(
+                table, enrolment_start_date, enrolment_end_date, filters
+            )
 
-            # Map filter keys to BQ column names
-            filter_key_map = APAR_FILTER_KEY_MAP
-            filter_clauses = []
-            params = []
-            # Add filters if present
-            for key, value in filters.items():
-                if value and key in filter_key_map:
-                    bq_col = filter_key_map[key]
-                    filter_clauses.append(f"{bq_col} = @{bq_col}")
-                    params.append(bigquery.ScalarQueryParameter(bq_col, "STRING", value.strip()))       
-
-            # Always add date filter
-            if enrolment_start_date and enrolment_end_date:
-                filter_clauses.insert(0, "enrolled_on >= @start_date AND enrolled_on <= @end_date")
-                params.insert(0, bigquery.ScalarQueryParameter("end_date", "TIMESTAMP", enrolment_end_date))
-                params.insert(0, bigquery.ScalarQueryParameter("start_date", "TIMESTAMP", enrolment_start_date))
-
-            # Build query
-            if filter_clauses:
-                query = f"""
-                    SELECT *
-                    FROM `{table}`
-                    WHERE {" AND ".join(filter_clauses)}
-                """
-            else:
-                query = f"""
-                    SELECT *
-                    FROM `{table}`{date_filter}
-                """
-
-    
-            job_config = bigquery.QueryJobConfig(query_parameters=params)
             ReportService.logger.info(f"Executing APAR enrolment query: {query} with params: {params}")
-            df = client.query(query, job_config=job_config).to_dataframe()
+            df = client.query(query, job_config=bigquery.QueryJobConfig(query_parameters=params)).to_dataframe()
 
             # Filter columns if required
             if required_columns:
-                filtered_cols = [col for col in required_columns if col in df.columns]
-                if filtered_cols:
-                    df = df[filtered_cols]
+                df = ReportService._filter_dataframe_columns(df, required_columns)
 
-            def generate_csv_stream(df, cols):
-                try:
-                    yield '|'.join(cols) + '\n'
-                    for row in df.itertuples(index=False, name=None):
-                        row_dict = dict(zip(cols, row))
-                        if IS_MASKING_ENABLED.lower() == 'true':
-                            if 'email' in row_dict and row_dict['email'] is not None:
-                                parts = row_dict['email'].split('@')
-                                if len(parts) == 2:
-                                    domain_parts = parts[1].split('.')
-                                    masked_domain = '.'.join(['*' * len(part) for part in domain_parts])
-                                    row_dict['email'] = f"{parts[0]}@{masked_domain}"
-                                else:
-                                    row_dict['email'] = parts[0]
-
-                            # Mask phone number: e.g., ******2245
-                            if 'phone' in row_dict and row_dict['phone'] is not None:
-                                phone = str(row_dict['phone'])
-                                if phone and len(phone) >= 4:
-                                    row_dict['phone'] = '*' * (len(phone) - 4) + phone[-4:]
-                                elif phone:
-                                    row_dict['phone'] = '*' * len(phone)
-
-                        # Convert back to row and yield
-                        yield '|'.join([str(row_dict.get(col, '')) for col in cols]) + '\n'
-                finally:
-                    df.drop(df.index, inplace=True)
-                    del df
-                    gc.collect()
-                    ReportService.logger.info("Cleaned up DataFrame after streaming.")
-            ReportService.logger.info(f"CSV stream generated with {len(df)} rows.")
-            return generate_csv_stream(df, df.columns.tolist())
+            return ReportService._generate_csv_stream_with_masking(df)
         except Exception as e:
             ReportService.logger.error(f"Error fetching APAR enrolment report: {e}")
             return None
+
+    @staticmethod
+    def _build_apar_query(table, enrolment_start_date, enrolment_end_date, filters):
+        """Build the APAR query and parameters."""
+        date_filter = ""
+        if enrolment_start_date and enrolment_end_date:
+            date_filter = f" AND enrolled_on BETWEEN '{enrolment_start_date}' AND '{enrolment_end_date}'"
+
+        filter_key_map = APAR_FILTER_KEY_MAP
+        filter_clauses = []
+        params = []
+
+        for key, value in filters.items():
+            if value and key in filter_key_map:
+                bq_col = filter_key_map[key]
+                filter_clauses.append(f"{bq_col} = @{bq_col}")
+                params.append(bigquery.ScalarQueryParameter(bq_col, "STRING", value.strip()))
+
+        if enrolment_start_date and enrolment_end_date:
+            filter_clauses.insert(0, "enrolled_on >= @start_date AND enrolled_on <= @end_date")
+            params.insert(0, bigquery.ScalarQueryParameter("end_date", "TIMESTAMP", enrolment_end_date))
+            params.insert(0, bigquery.ScalarQueryParameter("start_date", "TIMESTAMP", enrolment_start_date))
+
+        query = f"""
+            SELECT *
+            FROM `{table}`
+            WHERE {" AND ".join(filter_clauses)}{date_filter if not filter_clauses else ""}
+        """
+        return query, params
+
+    @staticmethod
+    def _filter_dataframe_columns(df, required_columns):
+        """Filter DataFrame to include only required columns."""
+        filtered_cols = [col for col in required_columns if col in df.columns]
+        if filtered_cols:
+            return df[filtered_cols]
+        return df
+
+    @staticmethod
+    def _generate_csv_stream_with_masking(df):
+        """Generate CSV stream with optional masking."""
+        try:
+            yield '|'.join(df.columns.tolist()) + '\n'
+            for row in df.itertuples(index=False, name=None):
+                row_dict = dict(zip(df.columns, row))
+                if IS_MASKING_ENABLED.lower() == 'true':
+                    row_dict = ReportService._mask_sensitive_data(row_dict)
+                yield '|'.join([str(row_dict.get(col, '')) for col in df.columns]) + '\n'
+        finally:
+            df.drop(df.index, inplace=True)
+            del df
+            gc.collect()
+            ReportService.logger.info("Cleaned up DataFrame after streaming.")

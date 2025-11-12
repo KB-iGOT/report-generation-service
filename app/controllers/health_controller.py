@@ -1,6 +1,5 @@
 from flask import Blueprint, jsonify
 import logging
-#from ..config.db_connection import DBConnection
 from ..services.fetch_data_bigQuery import BigQueryService
 
 # Initialize logger
