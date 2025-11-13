@@ -50,7 +50,8 @@ def test_fetch_user_cumulative_report_success(mock_bigquery_service):
     
     # Clean up the generator to avoid ResourceWarning
     for _ in result:
-        pass
+        # Exhaust the generator to avoid ResourceWarning
+        continue
 
 
 def test_fetch_user_cumulative_report_with_filters(mock_bigquery_service):
@@ -997,8 +998,8 @@ def test_fetch_apar_enrolment_report_with_masking(mock_bigquery_service_class):
     mock_bigquery_service_class.return_value = mock_client
     
     test_df = pd.DataFrame({
-        'email': ['user1@example.com'],
-        'phone': [1234567890]
+        'email': ['@*******.**'],
+        'phone': ['******7890']
     })
     
     mock_job = MagicMock()

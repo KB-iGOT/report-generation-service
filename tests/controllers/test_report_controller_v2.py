@@ -34,16 +34,49 @@ def client(app):
 @patch("app.controllers.report_controller_v2.ReportService")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_report_success(mock_report_service, mock_report_service_v2, client):
-    """Dummy test for successful report generation."""
-    assert True  # Dummy assertion
+    """Test successful report generation."""
+    # Setup
+    mock_report_service_v2.generate_report.return_value = iter(["header\n", "data1\n", "data2\n"])
+    # Execute
+    response = client.post(
+        '/report/v2/org/enrolment/org123',
+        json={
+            'start_date': '2023-01-01',
+            'end_date': '2023-01-31',
+            'isFullReportRequired': True
+        },
+        headers={'x_org_id': 'org456'}
+    )
+    # Verify
+    assert response.status_code == 200
+    assert response.mimetype == 'text/csv'
+    assert 'attachment; filename="enrolment-report-v2.csv"' in response.headers['Content-Disposition']
+    mock_report_service_v2.generate_report.assert_called_once()
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
 @patch("app.services.report_service.ReportService.isValidOrg")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_report_unauthorized_org_id(mock_is_valid_org, mock_report_service_v2, client):
-    """Dummy test for unauthorized organization ID."""
-    assert True  # Dummy assertion
+    """Test for unauthorized organization ID."""
+    # Setup
+    mock_is_valid_org.return_value = False
+
+    # Execute
+    response = client.post(
+        '/report/v2/org/enrolment/org123',
+        json={
+            'start_date': '2023-01-01',
+            'end_date': '2023-01-31',
+            'isFullReportRequired': True
+        },
+        headers={'x_org_id': 'org456'}
+    )
+
+    # Verify
+    assert response.status_code == 403
+    data = json.loads(response.data)
+    assert 'Access denied for the specified organization ID' in data['error']
 
 
 import json
@@ -667,15 +700,47 @@ def test_get_report_malloc_trim_exception(mock_cdll, mock_is_valid_org, mock_rep
 @patch("app.services.report_service.ReportService.isValidOrg")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_user_report_service_exception(mock_is_valid_org, mock_report_service_v2, client):
-    """Dummy test for user report service exception."""
-    assert True  # Dummy assertion
+    """Test user report generation when service throws an exception."""
+    # Setup
+    mock_is_valid_org.return_value = True
+    mock_report_service_v2.generate_user_report.side_effect = Exception("Service error")
+
+    # Execute
+    response = client.post(
+        '/report/v2/user/sync/org123',
+        json={
+            'userEmail': 'user@example.com',
+            'start_date': '2023-01-01',
+            'end_date': '2023-01-31'
+        },
+        headers={'x_org_id': 'org456'}
+    )
+
+    # Verify
+    assert response.status_code == 500
+    data = json.loads(response.data)
+    assert 'Failed to generate the report' in data['error']
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
 @patch("app.services.report_service.ReportService.isValidOrg")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_org_user_report_no_request_body(mock_is_valid_org, mock_report_service_v2, client):
-     assert True  # Dummy assertion
+    """Test org user report generation with no request body."""
+    # Setup
+    mock_is_valid_org.return_value = True
+
+    # Execute: send POST with no JSON body
+    response = client.post(
+        '/report/v2/org/user/org123',
+        data=None,
+        headers={'x_org_id': 'org456'}
+    )
+
+    # Verify
+    assert response.status_code == 400
+    data = json.loads(response.data)
+    assert 'Request body is missing' in data['error']
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
@@ -710,8 +775,20 @@ def test_get_org_user_report_malloc_trim_exception(mock_cdll, mock_is_valid_org,
 @patch("app.services.report_service.ReportService.isValidOrg")
 @patch("app.controllers.report_controller_v2.IS_VALIDATION_ENABLED", "false")
 def test_get_org_user_report_key_error(mock_is_valid_org, mock_report_service_v2, client):
-    """Dummy test for org user report key error."""
-    assert True  # Dummy assertion
+    """Test org user report generation handles KeyError gracefully."""
+    mock_is_valid_org.return_value = True
+    mock_report_service_v2.generate_org_user_report.side_effect = KeyError("Missing key")
+    response = client.post(
+        '/report/v2/org/user/org123',
+        json={
+            'user_creation_start_date': '2023-01-01',
+            'user_creation_end_date': '2023-01-31'
+        },
+        headers={'x_org_id': 'org456'}
+    )
+    assert response.status_code == 500
+    data = json.loads(response.data)
+    assert 'Failed to generate the report' in data['error'] or 'error' in data
 
 
 @patch("app.controllers.report_controller_v2.ReportServiceV2")
