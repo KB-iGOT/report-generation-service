@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 
 REQUEST_BODY_MISSING_ERROR = "Request body is missing"
 REQUEST_BODY_MISSING_ERROR_RESPONSE = {'error': REQUEST_BODY_MISSING_ERROR}
+TEXT_CSV = "text/csv"
+INSIDE_MALLOC_TRIM_LOG = "inside malloc_trim:"
+LIBC_SO_6 = "libc.so.6"
+UNEXPECTED_ERROR_MSG = "An unexpected error occurred. Please try again later."
 
 report_controller_v2 = Blueprint('report_controller_v2', __name__)
 
@@ -138,7 +142,7 @@ def get_report(org_id):
 
         response = Response(
             stream_with_context(csv_data),
-            mimetype="text/csv",
+            mimetype=TEXT_CSV,
             headers={
                 "Content-Disposition": f'attachment; filename="report_v2_{org_id}.csv"'
             }
@@ -158,11 +162,11 @@ def get_report(org_id):
     except Exception as e:
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
-        return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
+        return jsonify({'error': UNEXPECTED_ERROR_MSG, 'details': error_message}), 500
     finally: 
         gc.collect()
         try:
-            logger.info("inside malloc_trim:")
+            logger.info(INSIDE_MALLOC_TRIM_LOG)
             ctypes.CDLL("libc.so.6").malloc_trim(0)
         except Exception as e:
             logger.exception("malloc_trim failed: %s", str(e))
@@ -250,7 +254,7 @@ def get_user_report(orgId):
 
         response = Response(
             stream_with_context(csv_data),
-            mimetype="text/csv",
+            mimetype=TEXT_CSV,
             headers={
                 "Content-Disposition": f'attachment; filename="user-report-v2.csv"'
             }
@@ -270,11 +274,11 @@ def get_user_report(orgId):
     except Exception as e:
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
-        return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
+        return jsonify({'error': UNEXPECTED_ERROR_MSG, 'details': error_message}), 500
     finally: 
         gc.collect()
         try:
-            logger.info("inside malloc_trim:")
+            logger.info(INSIDE_MALLOC_TRIM_LOG)
             ctypes.CDLL("libc.so.6").malloc_trim(0)
         except Exception as e:
             logger.exception("malloc_trim failed: %s", str(e))
@@ -348,7 +352,7 @@ def get_org_user_report(orgId):
 
         response = Response(
             stream_with_context(csv_data),
-            mimetype="text/csv",
+            mimetype=TEXT_CSV,
             headers={
                 "Content-Disposition": f'attachment; filename="user-org-report-v2.csv"'
             }
@@ -368,11 +372,11 @@ def get_org_user_report(orgId):
     except Exception as e:
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
-        return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
+        return jsonify({'error': UNEXPECTED_ERROR_MSG, 'details': error_message}), 500
     finally: 
         gc.collect()
         try:
-            logger.info("inside malloc_trim:")
-            ctypes.CDLL("libc.so.6").malloc_trim(0)
+            logger.info(INSIDE_MALLOC_TRIM_LOG)
+            ctypes.CDLL(LIBC_SO_6).malloc_trim(0)
         except Exception as e:
             logger.exception("malloc_trim failed: %s", str(e))
