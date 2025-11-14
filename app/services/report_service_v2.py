@@ -14,10 +14,11 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-
+CLEANED_UP_DF_LOG = "Cleaned up DataFrame after streaming."
+AND_JOIN = " AND "
 class ReportServiceV2:
     logger = logging.getLogger(__name__)
-    AND_JOIN = " AND "
+   
 
     @staticmethod
     def _process_filters(filters, filter_config, where_clause_parts):
@@ -141,7 +142,7 @@ class ReportServiceV2:
             where_clause_parts = ReportServiceV2._process_filters(additional_filters, ENROLMENT_FILTER_CONFIG, where_clause_parts)
             
             # Construct the WHERE clause
-            where_clause = ReportServiceV2.AND_JOIN.join(where_clause_parts)
+            where_clause = AND_JOIN.join(where_clause_parts)
             
             query = f"""
                 SELECT * 
@@ -176,7 +177,7 @@ class ReportServiceV2:
                     df.drop(df.index, inplace=True)
                     del df
                     gc.collect()
-                    ReportServiceV2.logger.info("Cleaned up DataFrame after streaming.")
+                    ReportServiceV2.logger.info(CLEANED_UP_DF_LOG)
 
             ReportServiceV2.logger.info(f"CSV stream generated with {len(result_df)} rows.")
             return generate_csv_stream(result_df, result_df.columns.tolist())
@@ -269,7 +270,7 @@ class ReportServiceV2:
             where_clause_parts = ReportServiceV2._process_filters(additional_filters, USER_REPORT_FILTER_CONFIG, where_clause_parts)
             
             # Construct the WHERE clause
-            where_clause = ReportServiceV2.AND_JOIN.join(where_clause_parts)
+            where_clause = AND_JOIN.join(where_clause_parts)
             
             enrollment_query = f"""
                 SELECT *
@@ -304,7 +305,7 @@ class ReportServiceV2:
                     df.drop(df.index, inplace=True)
                     del df
                     gc.collect()
-                    ReportServiceV2.logger.info("Cleaned up DataFrame after streaming.")
+                    ReportServiceV2.logger.info(CLEANED_UP_DF_LOG)
 
             ReportServiceV2.logger.info(f"CSV stream generated with {len(merged_df)} rows.")
 
@@ -382,7 +383,7 @@ class ReportServiceV2:
             where_clause_parts = ReportServiceV2._process_filters(additional_filters, USER_FILTER_CONFIG, where_clause_parts)
             
             # Construct the WHERE clause
-            where_clause = ReportServiceV2.AND_JOIN.join(where_clause_parts)
+            where_clause = AND_JOIN.join(where_clause_parts)
             
             query = f"""
                 SELECT * 
@@ -438,7 +439,7 @@ class ReportServiceV2:
                     df.drop(df.index, inplace=True)
                     del df
                     gc.collect()
-                    ReportServiceV2.logger.info("Cleaned up DataFrame after streaming.")
+                    ReportServiceV2.logger.info(CLEANED_UP_DF_LOG)
             
             ReportServiceV2.logger.info(f"CSV stream generated with {len(result_df)} rows.")
             return generate_csv_stream(result_df, result_df.columns.tolist())

@@ -486,7 +486,7 @@ def test_get_mdo_id_org_list(mock_redis_service, mock_bigquery_service):
 
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
-def test_isValidOrg_success(mock_get_mdo_list, mock_bigquery_service):
+def test_is_valid_org_success(mock_get_mdo_list, mock_bigquery_service):
     """
     Test that isValidOrg returns True when request_org_id is in the org_list.
 
@@ -511,7 +511,7 @@ def test_isValidOrg_success(mock_get_mdo_list, mock_bigquery_service):
 
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
-def test_isValidOrg_failure(mock_get_mdo_list, mock_bigquery_service):
+def test_is_valid_org_failure(mock_get_mdo_list, mock_bigquery_service):
     """
     Test that isValidOrg returns False when request_org_id is not in the org_list.
     """
@@ -532,7 +532,7 @@ def test_isValidOrg_failure(mock_get_mdo_list, mock_bigquery_service):
 
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
-def test_isValidOrg_with_x_org_id(mock_get_mdo_list, mock_bigquery_service):
+def test_is_valid_org_with_x_org_id(mock_get_mdo_list, mock_bigquery_service):
     """
     Test that isValidOrg returns True when request_org_id is the same as x_org_id.
     """
@@ -552,9 +552,8 @@ def test_isValidOrg_with_x_org_id(mock_get_mdo_list, mock_bigquery_service):
     mock_get_mdo_list.assert_called_once()
 
 
-
 @patch('app.services.report_service.BigQueryService')
-def test_isValidOrg_exception_handling(mock_bigquery_service_class):
+def test_is_valid_org_exception_handling(mock_bigquery_service_class):
     """
     Test that isValidOrg handles exceptions and returns False when an error occurs.
     """
@@ -569,7 +568,7 @@ def test_isValidOrg_exception_handling(mock_bigquery_service_class):
     mock_bigquery_service_class.assert_called_once()
 
 
-def test_isValidOrg_missing_org_id():
+def test_is_valid_org_missing_org_id():
     """
     Test that isValidOrg returns False when request_org_id is None or empty.
     """
@@ -586,7 +585,7 @@ def test_isValidOrg_missing_org_id():
         mock_bigquery.assert_not_called()
 
 
-def test_isValidOrg_missing_x_org_id():
+def test_is_valid_org_missing_x_org_id():
     """
     Test that isValidOrg returns False when x_org_id is None or empty.
     """
