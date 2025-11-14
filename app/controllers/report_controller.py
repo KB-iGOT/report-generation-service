@@ -29,6 +29,8 @@ UNEXPECTED_ERROR_MSG = "An unexpected error occurred. Please try again later."
 INSIDE_MALLOC_TRIM_LOG = "inside malloc_trim:"
 LIBC_SO_6 = "libc.so.6"
 MALLOC_TRIM_FAILED_LOG = "malloc_trim failed: %s"
+REQUEST_BODY_MISSING_ERROR = "Request body is missing"
+REQUEST_BODY_MISSING_ERROR_RESPONSE = {'error': REQUEST_BODY_MISSING_ERROR}
 
 report_controller = Blueprint('report_controller', __name__)
 
@@ -158,8 +160,8 @@ def get_user_report(org_id):
         # Parse and validate input parameters
         data = request.get_json()
         if not data:
-            logger.error("Request body is missing")
-            return jsonify({'error': 'Request body is missing.'}), 400
+            logger.error(REQUEST_BODY_MISSING_ERROR)
+            return jsonify(REQUEST_BODY_MISSING_ERROR_RESPONSE), 400
 
         user_email = data.get('userEmail')
         user_phone = data.get('userPhone')
@@ -257,8 +259,8 @@ def get_org_user_report(org_id):
         # Parse and validate input parameters
         data = request.get_json()
         if not data:
-            logger.error("Request body is missing")
-            return jsonify({'error': 'Request body is missing.'}), 400
+            logger.error(REQUEST_BODY_MISSING_ERROR)
+            return jsonify(REQUEST_BODY_MISSING_ERROR_RESPONSE), 400
 
         user_creation_start_date = data.get('user_creation_start_date')
         user_creation_end_date = data.get('user_creation_end_date')
