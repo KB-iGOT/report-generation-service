@@ -295,11 +295,11 @@ def get_org_user_report(orgId):
         try:
             data = request.get_json()
             if not data:
-                logger.error("Request body is missing")
-                return jsonify({'error': 'Request body is missing'}), 400
+                logger.error(REQUEST_BODY_MISSING_ERROR)
+                return jsonify(REQUEST_BODY_MISSING_ERROR_RESPONSE), 400
         except Exception as e:
             logger.error(f"{REQUEST_BODY_MISSING_ERROR}: {e}")
-            return jsonify({'error': 'Request body is missing'}), 400
+            return jsonify(REQUEST_BODY_MISSING_ERROR_RESPONSE), 400
 
         user_creation_start_date = data.get('user_creation_start_date')
         user_creation_end_date = data.get('user_creation_end_date')
