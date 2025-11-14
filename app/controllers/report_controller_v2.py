@@ -23,6 +23,7 @@ TEXT_CSV = "text/csv"
 INSIDE_MALLOC_TRIM_LOG = "inside malloc_trim:"
 LIBC_SO_6 = "libc.so.6"
 UNEXPECTED_ERROR_MSG = "An unexpected error occurred. Please try again later."
+MALLOC_TRIM_FAILED_LOG = "malloc_trim failed: %s"
 
 report_controller_v2 = Blueprint('report_controller_v2', __name__)
 
@@ -167,9 +168,9 @@ def get_report(org_id):
         gc.collect()
         try:
             logger.info(INSIDE_MALLOC_TRIM_LOG)
-            ctypes.CDLL("libc.so.6").malloc_trim(0)
+            ctypes.CDLL(LIBC_SO_6).malloc_trim(0)
         except Exception as e:
-            logger.exception("malloc_trim failed: %s", str(e))
+            logger.exception(MALLOC_TRIM_FAILED_LOG, str(e))
 
 @report_controller_v2.route('/report/v2/user/sync/<orgId>', methods=['POST'])
 def get_user_report(orgId):
@@ -279,9 +280,9 @@ def get_user_report(orgId):
         gc.collect()
         try:
             logger.info(INSIDE_MALLOC_TRIM_LOG)
-            ctypes.CDLL("libc.so.6").malloc_trim(0)
+            ctypes.CDLL(LIBC_SO_6).malloc_trim(0)
         except Exception as e:
-            logger.exception("malloc_trim failed: %s", str(e))
+            logger.exception(MALLOC_TRIM_FAILED_LOG, str(e))
 
 @report_controller_v2.route('/report/v2/org/user/<orgId>', methods=['POST'])
 def get_org_user_report(orgId):
@@ -379,4 +380,4 @@ def get_org_user_report(orgId):
             logger.info(INSIDE_MALLOC_TRIM_LOG)
             ctypes.CDLL(LIBC_SO_6).malloc_trim(0)
         except Exception as e:
-            logger.exception("malloc_trim failed: %s", str(e))
+            logger.exception(MALLOC_TRIM_FAILED_LOG, str(e))

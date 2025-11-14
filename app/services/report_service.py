@@ -11,6 +11,9 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
+
+CLEANED_UP_DF_LOG = "Cleaned up DataFrame after streaming."
+
 class ReportService:
     logger = logging.getLogger(__name__)
 
@@ -104,7 +107,7 @@ class ReportService:
                     df.drop(df.index, inplace=True)
                     del df
                     gc.collect()
-                    ReportService.logger.info("Cleaned up DataFrame after streaming.")
+                    ReportService.logger.info(CLEANED_UP_DF_LOG)
 
             ReportService.logger.info(f"CSV stream generated with {len(merged_df)} rows.")
 
@@ -173,7 +176,7 @@ class ReportService:
                     df.drop(df.index, inplace=True)
                     del df
                     gc.collect()
-                    ReportService.logger.info("Cleaned up DataFrame after streaming.")
+                    ReportService.logger.info(CLEANED_UP_DF_LOG)
 
             ReportService.logger.info(f"CSV stream generated with {len(result_df)} rows.")
             return generate_csv_stream(result_df, result_df.columns.tolist())
@@ -254,7 +257,7 @@ class ReportService:
                     df.drop(df.index, inplace=True)
                     del df
                     gc.collect()
-                    ReportService.logger.info("Cleaned up DataFrame after streaming.")
+                    ReportService.logger.info(CLEANED_UP_DF_LOG)
             ReportService.logger.info(f"CSV stream generated with {len(result_df)} rows.")
 
             # Return CSV content without closing the stream
@@ -434,7 +437,7 @@ class ReportService:
                     df.drop(df.index, inplace=True)
                     del df
                     gc.collect()
-                    ReportService.logger.info("Cleaned up DataFrame after streaming.")
+                    ReportService.logger.info(CLEANED_UP_DF_LOG)
             ReportService.logger.info(f"CSV stream generated with {len(df)} rows.")
             return generate_csv_stream(df, df.columns.tolist())
         except Exception as e:
