@@ -24,6 +24,8 @@ INSIDE_MALLOC_TRIM_LOG = "inside malloc_trim:"
 LIBC_SO_6 = "libc.so.6"
 UNEXPECTED_ERROR_MSG = "An unexpected error occurred. Please try again later."
 MALLOC_TRIM_FAILED_LOG = "malloc_trim failed: %s"
+CONTENT_DISPOSITION_USER_REPORT_V2 = "attachment; filename=user-report-v2.csv"
+CONTENT_DISPOSITION_USER_ORG_REPORT_V2 = "attachment; filename=user-org-report-v2.csv"
 
 report_controller_v2 = Blueprint('report_controller_v2', __name__)
 
@@ -257,7 +259,7 @@ def get_user_report(orgId):
             stream_with_context(csv_data),
             mimetype=TEXT_CSV,
             headers={
-                "Content-Disposition": f'attachment; filename="user-report-v2.csv"'
+                "Content-Disposition": CONTENT_DISPOSITION_USER_REPORT_V2
             }
         )
         
@@ -340,7 +342,7 @@ def get_org_user_report(orgId):
             )
 
             if not csv_data:
-                logger.warning(f"No data found for orgId={orgId}")
+                logger.warning(f"No data found for org_id={orgId}")
                 return jsonify({'error': 'No data found for the given org details and filters.'}), 404
 
         except Exception as e:
@@ -355,7 +357,7 @@ def get_org_user_report(orgId):
             stream_with_context(csv_data),
             mimetype=TEXT_CSV,
             headers={
-                "Content-Disposition": f'attachment; filename="user-org-report-v2.csv"'
+                "Content-Disposition": CONTENT_DISPOSITION_USER_ORG_REPORT_V2
             }
         )
         
