@@ -104,7 +104,7 @@ def test_fetch_user_cumulative_report_with_filters(mock_bigquery_service):
     
     # Clean up the generator to avoid ResourceWarning
     for _ in result:
-        pass  # Explicitly exhaust the generator
+        pass # Explicitly exhaust the generator
 
 
 def test_fetch_user_cumulative_report_no_users(mock_bigquery_service):
@@ -199,7 +199,7 @@ def test_fetch_master_enrolments_data_success(mock_bigquery_service):
     
     # Clean up the generator to avoid ResourceWarning
     for _ in result:
-        pass  # Explicitly exhaust the generator
+        pass # Explicitly exhaust the generator
 
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
@@ -236,7 +236,7 @@ def test_fetch_master_enrolments_data_full_report(mock_get_mdo_list, mock_bigque
     
     # Clean up the generator to avoid ResourceWarning
     for _ in result:
-        pass  # Explicitly exhaust the generator
+        pass # Explicitly exhaust the generator
 
 
 def test_fetch_master_enrolments_data_no_data(mock_bigquery_service):
@@ -312,7 +312,7 @@ def test_fetch_master_user_data_success(mock_bigquery_service):
         
         # Clean up the generator to avoid ResourceWarning
         for _ in result:
-            pass  # Explicitly exhaust the generator
+            pass # Explicitly exhaust the generator
 
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
@@ -347,7 +347,7 @@ def test_fetch_master_user_data_full_report(mock_get_mdo_list, mock_bigquery_ser
         
         # Clean up the generator to avoid ResourceWarning
         for _ in result:
-            pass  # Explicitly exhaust the generator
+            pass # Explicitly exhaust the generator
 
 
 def test_fetch_master_user_data_with_date_range(mock_bigquery_service):
@@ -384,7 +384,7 @@ def test_fetch_master_user_data_with_date_range(mock_bigquery_service):
         
         # Clean up the generator to avoid ResourceWarning
         for _ in result:
-            pass  # Explicitly exhaust the generator
+            pass # Explicitly exhaust the generator
 
 
 @patch('app.services.report_service.IS_MASKING_ENABLED', 'true')
@@ -674,7 +674,7 @@ def test_fetch_master_enrolments_data_with_missing_columns(mock_bigquery_service
     
     # Clean up generator
     for _ in result:
-        pass  # Explicitly exhaust the generator
+        pass # Explicitly exhaust the generator
 
 
 def test_fetch_master_user_data_with_missing_columns(mock_bigquery_service):
@@ -703,7 +703,7 @@ def test_fetch_master_user_data_with_missing_columns(mock_bigquery_service):
         
         # Clean up generator
         for _ in result:
-            pass  # Explicitly exhaust the generator
+            pass # Explicitly exhaust the generator
 
 
 def test_fetch_user_cumulative_report_1(mock_bigquery_service):
@@ -720,7 +720,6 @@ def test_fetch_user_cumulative_report_1(mock_bigquery_service):
     start_date = None
     end_date = None
     orgId = None
-    required_columns = None
 
     # Execute
     result = ReportService.fetch_user_cumulative_report(
@@ -907,7 +906,7 @@ def test_fetch_apar_enrolment_report_success(mock_bigquery_service_class):
     
     # Clean up generator
     for _ in result:
-        pass  # Explicitly exhaust the generator
+        pass # Explicitly exhaust the generator
 
 
 @patch('app.services.report_service.BigQueryService')
@@ -953,7 +952,7 @@ def test_fetch_apar_enrolment_report_with_all_filters(mock_bigquery_service_clas
     
     # Clean up generator
     for _ in result:
-        pass  # Explicitly exhaust the generator
+        pass # Explicitly exhaust the generator
 
 
 @patch('app.services.report_service.BigQueryService')
@@ -986,7 +985,7 @@ def test_fetch_apar_enrolment_report_no_filters(mock_bigquery_service_class):
     
     # Clean up generator
     for _ in result:
-        pass  # Explicitly exhaust the generator
+        continue
 
 
 @patch('app.services.report_service.BigQueryService')
@@ -1115,4 +1114,4 @@ def test_fetch_apar_enrolment_report_filtered_columns(mock_bigquery_service_clas
     
     # Clean up generator
     for _ in result:
-        pass  # Explicitly exhaust the generator
+        continue

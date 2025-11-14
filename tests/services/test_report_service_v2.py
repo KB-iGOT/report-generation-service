@@ -622,4 +622,4 @@ def test_generate_org_user_report_with_missing_columns(mock_get_mdo_id_org_list,
 
     # Clean up the generator to avoid ResourceWarning
     for _ in result:
-        pass  # Explicitly exhaust the generator
+        continue 
