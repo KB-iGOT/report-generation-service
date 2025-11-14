@@ -17,6 +17,7 @@ logging.basicConfig(
 
 class ReportServiceV2:
     logger = logging.getLogger(__name__)
+    AND_JOIN = " AND "
 
     @staticmethod
     def _process_filters(filters, filter_config, where_clause_parts):
@@ -140,7 +141,7 @@ class ReportServiceV2:
             where_clause_parts = ReportServiceV2._process_filters(additional_filters, ENROLMENT_FILTER_CONFIG, where_clause_parts)
             
             # Construct the WHERE clause
-            where_clause = " AND ".join(where_clause_parts)
+            where_clause = ReportServiceV2.AND_JOIN.join(where_clause_parts)
             
             query = f"""
                 SELECT * 
@@ -268,7 +269,7 @@ class ReportServiceV2:
             where_clause_parts = ReportServiceV2._process_filters(additional_filters, USER_REPORT_FILTER_CONFIG, where_clause_parts)
             
             # Construct the WHERE clause
-            where_clause = " AND ".join(where_clause_parts)
+            where_clause = ReportServiceV2.AND_JOIN.join(where_clause_parts)
             
             enrollment_query = f"""
                 SELECT *
@@ -381,7 +382,7 @@ class ReportServiceV2:
             where_clause_parts = ReportServiceV2._process_filters(additional_filters, USER_FILTER_CONFIG, where_clause_parts)
             
             # Construct the WHERE clause
-            where_clause = " AND ".join(where_clause_parts)
+            where_clause = ReportServiceV2.AND_JOIN.join(where_clause_parts)
             
             query = f"""
                 SELECT * 
