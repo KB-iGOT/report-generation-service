@@ -17,6 +17,19 @@ from datetime import timedelta
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+CONTENT_DISPOSITION_REPORT = "attachment; filename=report.csv"
+CONTENT_DISPOSITION_USER_REPORT = "attachment; filename=user-report.csv"
+CONTENT_DISPOSITION_ORG_REPORT = "attachment; filename=report_{org_id}.csv"
+
+MISSING_X_ORG_ID_ERROR = "Missing 'x_org_id' in headers."
+ORGANIZATION_ID_REQUIRED_ERROR = "Organization ID is required."
+TEXT_CSV = "text/csv"
+INVALID_DATE_FORMAT_ERROR = "Invalid date format. Use YYYY-MM-DD."
+UNEXPECTED_ERROR_MSG = "An unexpected error occurred. Please try again later."
+INSIDE_MALLOC_TRIM_LOG = "inside malloc_trim:"
+LIBC_SO_6 = "libc.so.6"
+MALLOC_TRIM_FAILED_LOG = "malloc_trim failed: %s"
+
 report_controller = Blueprint('report_controller', __name__)
 
 @report_controller.route('/report/org/enrolment/<org_id>', methods=['POST'])
@@ -27,8 +40,8 @@ def get_report(org_id):
         x_org_id = request.headers.get(X_ORG_ID)
         logger.info(f"Received x_org_id={x_org_id}")
         if not x_org_id:
-            logger.error("Missing 'x_org_id' in headers.")
-            return jsonify({'error': 'Organization ID is required.'}), 400
+            logger.error(MISSING_X_ORG_ID_ERROR)
+            return jsonify({'error': ORGANIZATION_ID_REQUIRED_ERROR}), 400
         if not ReportService.isValidOrg(x_org_id, org_id):
             logger.error(f"Invalid organization ID: {org_id}")
             return jsonify({'error': f'Not authorized to view the report for : {org_id}'}), 401
@@ -90,9 +103,9 @@ def get_report(org_id):
 
         response = Response(
             stream_with_context(csv_data),
-            mimetype="text/csv",
+            mimetype=TEXT_CSV,
             headers={
-                "Content-Disposition": f'attachment; filename="report_{org_id}.csv"'
+                "Content-Disposition": CONTENT_DISPOSITION_REPORT
             }
         )
 
@@ -110,7 +123,7 @@ def get_report(org_id):
     except ValueError as e:
         error_message = str(e)
         logger.error(f"Invalid date format in request: {error_message}")
-        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.', 'details': error_message}), 400
+        return jsonify({'error': INVALID_DATE_FORMAT_ERROR, 'details': error_message}), 400
 
     except FileNotFoundError as e:
         error_message = str(e)
@@ -120,28 +133,28 @@ def get_report(org_id):
     except Exception as e:
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
-        return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
+        return jsonify({'error': UNEXPECTED_ERROR_MSG, 'details': error_message}), 500
     finally: 
         gc.collect()
         try:
-            logger.info("inside malloc_trim:")
-            ctypes.CDLL("libc.so.6").malloc_trim(0)
+            logger.info(INSIDE_MALLOC_TRIM_LOG)
+            ctypes.CDLL(LIBC_SO_6).malloc_trim(0)
         except Exception as e:
-            logger.exception("malloc_trim failed: %s", str(e))
+            logger.exception(MALLOC_TRIM_FAILED_LOG, str(e))
 
-@report_controller.route('/report/user/sync/<orgId>', methods=['POST'])
-def get_user_report(orgId):
+@report_controller.route('/report/user/sync/<org_id>', methods=['POST'])
+def get_user_report(org_id):
     try:
         start_timer = time_module.time()
         logger.info("Received request to generate user report")
         x_org_id = request.headers.get(X_ORG_ID)
         logger.info(f"Received x_org_id={x_org_id}")
         if not x_org_id:
-            logger.error("Missing 'x_org_id' in headers.")
-            return jsonify({'error': 'Organization ID is required.'}), 400
-        if not ReportService.isValidOrg(x_org_id, orgId):
-            logger.error(f"Invalid organization ID: {orgId}")
-            return jsonify({'error': f'Not authorized to view the report for : {orgId}'}), 401
+            logger.error(MISSING_X_ORG_ID_ERROR)
+            return jsonify({'error': ORGANIZATION_ID_REQUIRED_ERROR}), 400
+        if not ReportService.isValidOrg(x_org_id, org_id):
+            logger.error(f"Invalid organization ID: {org_id}")
+            return jsonify({'error': f'Not authorized to view the report for : {org_id}'}), 401
         # Parse and validate input parameters
         data = request.get_json()
         if not data:
@@ -173,7 +186,7 @@ def get_user_report(orgId):
                 start_date = datetime.combine(start_date.date(), time.min)  # 00:00:00
                 end_date = datetime.combine(end_date.date(), time.max)      # 23:59:59.999999
             except ValueError:
-                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
+                return jsonify({'error': INVALID_DATE_FORMAT_ERROR}), 400
 
         required_columns = data.get('required_columns', [])
 
@@ -181,7 +194,7 @@ def get_user_report(orgId):
         
         try:
             csv_data = ReportService.fetch_user_cumulative_report(
-                user_email, user_phone, ehrms_id, start_date, end_date, orgId,
+                user_email, user_phone, ehrms_id, start_date, end_date, org_id,
                 required_columns
             )
 
@@ -199,9 +212,9 @@ def get_user_report(orgId):
 
         response = Response(
             stream_with_context(csv_data),
-            mimetype="text/csv",
+            mimetype=TEXT_CSV,
             headers={
-                "Content-Disposition": f'attachment; filename="user-report.csv"'
+                "Content-Disposition": CONTENT_DISPOSITION_USER_REPORT
             }
         )
         
@@ -219,28 +232,28 @@ def get_user_report(orgId):
     except Exception as e:
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
-        return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
+        return jsonify({'error': UNEXPECTED_ERROR_MSG, 'details': error_message}), 500
     finally: 
         gc.collect()
         try:
-            logger.info("inside malloc_trim:")
-            ctypes.CDLL("libc.so.6").malloc_trim(0)
+            logger.info(INSIDE_MALLOC_TRIM_LOG)
+            ctypes.CDLL(LIBC_SO_6).malloc_trim(0)
         except Exception as e:
-            logger.exception("malloc_trim failed: %s", str(e))
+            logger.exception(MALLOC_TRIM_FAILED_LOG, str(e))
 
-@report_controller.route('/report/org/user/<orgId>', methods=['POST'])
-def get_org_user_report(orgId):
+@report_controller.route('/report/org/user/<org_id>', methods=['POST'])
+def get_org_user_report(org_id):
     try:
         start_timer = time_module.time()
         logger.info("Received request to generate user report")
         x_org_id = request.headers.get(X_ORG_ID)
         logger.info(f"Received x_org_id={x_org_id}")
         if not x_org_id:
-            logger.error("Missing 'x_org_id' in headers.")
-            return jsonify({'error': 'Organization ID is required.'}), 400
-        if not ReportService.isValidOrg(x_org_id, orgId):
-            logger.error(f"Invalid organization ID: {orgId}")
-            return jsonify({'error': f'Not authorized to view the report for : {orgId}'}), 401        
+            logger.error(MISSING_X_ORG_ID_ERROR)
+            return jsonify({'error': ORGANIZATION_ID_REQUIRED_ERROR}), 400
+        if not ReportService.isValidOrg(x_org_id, org_id):
+            logger.error(f"Invalid organization ID: {org_id}")
+            return jsonify({'error': f'Not authorized to view the report for : {org_id}'}), 401        
         # Parse and validate input parameters
         data = request.get_json()
         if not data:
@@ -258,22 +271,22 @@ def get_org_user_report(orgId):
                 user_creation_start_date = datetime.combine(user_creation_start_date.date(), time.min)  # 00:00:00
                 user_creation_end_date = datetime.combine(user_creation_end_date.date(), time.max)      # 23:59:59.999999
             except ValueError:
-                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
+                return jsonify({'error': INVALID_DATE_FORMAT_ERROR}), 400
 
         # New parameters from request body
         is_full_report_required = data.get('isFullReportRequired', False)
         required_columns = data.get('required_columns', [])
 
 
-        logger.info(f"Generating user report for orgId={orgId}")
+        logger.info(f"Generating user report for orgId={org_id}")
         
         try:
             csv_data = ReportService.fetch_master_user_data(
-                orgId, is_full_report_required, required_columns=required_columns, user_creation_start_date=user_creation_start_date, user_creation_end_date=user_creation_end_date
+                org_id, is_full_report_required, required_columns=required_columns, user_creation_start_date=user_creation_start_date, user_creation_end_date=user_creation_end_date
             )
 
             if not csv_data:
-                logger.warning(f"No data found for orgId={orgId}")
+                logger.warning(f"No data found for orgId={org_id}")
                 return jsonify({'error': 'No data found for the given org details.'}), 404
 
         except Exception as e:
@@ -282,13 +295,13 @@ def get_org_user_report(orgId):
             return jsonify({'error': 'Failed to generate the report due to an internal error.', 'details': error_message}), 500
 
         time_taken = round(time_module.time() - start_timer, 2)
-        logger.info(f"Org User Report generated successfully for  in {time_taken} seconds for orgId={orgId}")
+        logger.info(f"Org User Report generated successfully for  in {time_taken} seconds for orgId={org_id}")
 
         response = Response(
             stream_with_context(csv_data),
-            mimetype="text/csv",
+            mimetype=TEXT_CSV,
             headers={
-                "Content-Disposition": f'attachment; filename="user-report.csv"'
+                "Content-Disposition": CONTENT_DISPOSITION_ORG_REPORT.format(org_id=org_id)
             }
         )
         
@@ -306,14 +319,14 @@ def get_org_user_report(orgId):
     except Exception as e:
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
-        return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
+        return jsonify({'error': UNEXPECTED_ERROR_MSG, 'details': error_message}), 500
     finally: 
         gc.collect()
         try:
-            logger.info("inside malloc_trim:")
-            ctypes.CDLL("libc.so.6").malloc_trim(0)
+            logger.info(INSIDE_MALLOC_TRIM_LOG)
+            ctypes.CDLL(LIBC_SO_6).malloc_trim(0)
         except Exception as e:
-            logger.exception("malloc_trim failed: %s", str(e))
+            logger.exception(MALLOC_TRIM_FAILED_LOG, str(e))
 
 @report_controller.route('/gcs-to-bq/sync', methods=['GET'])
 def sync_gcs_to_bq():
@@ -377,9 +390,9 @@ def get_apar_report():
 
         response = Response(
             stream_with_context(csv_data),
-            mimetype="text/csv",
+            mimetype=TEXT_CSV,
             headers={
-                "Content-Disposition": f'attachment; filename="report.csv"'
+                "Content-Disposition": CONTENT_DISPOSITION_REPORT
             }
         )
 
@@ -395,7 +408,7 @@ def get_apar_report():
     except ValueError as e:
         error_message = str(e)
         logger.error(f"Invalid date format in request: {error_message}")
-        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.', 'details': error_message}), 400
+        return jsonify({'error': INVALID_DATE_FORMAT_ERROR, 'details': error_message}), 400
 
     except FileNotFoundError as e:
         error_message = str(e)
@@ -405,11 +418,11 @@ def get_apar_report():
     except Exception as e:
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
-        return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
+        return jsonify({'error': UNEXPECTED_ERROR_MSG, 'details': error_message}), 500
     finally: 
         gc.collect()
         try:
-            logger.info("inside malloc_trim:")
-            ctypes.CDLL("libc.so.6").malloc_trim(0)
+            logger.info(INSIDE_MALLOC_TRIM_LOG)
+            ctypes.CDLL(LIBC_SO_6).malloc_trim(0)
         except Exception as e:
-            logger.exception("malloc_trim failed: %s", str(e))
+            logger.exception(MALLOC_TRIM_FAILED_LOG, str(e))
