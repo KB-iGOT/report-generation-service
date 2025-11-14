@@ -95,7 +95,7 @@ def test_generate_report_with_additional_filters(mock_get_mdo_id_org_list, mock_
 
         # Clean up the generator to avoid ResourceWarning
         for _ in result:
-            pass
+            pass  # Explicitly exhaust the generator
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
 def test_generate_report_with_mdo_id_list(mock_get_mdo_id_org_list, mock_bigquery_service):
@@ -135,7 +135,7 @@ def test_generate_report_with_mdo_id_list(mock_get_mdo_id_org_list, mock_bigquer
 
         # Clean up the generator to avoid ResourceWarning
         for _ in result:
-            pass
+            pass  # Explicitly exhaust the generator
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
 def test_generate_user_report_with_filters(mock_get_mdo_id_org_list, mock_bigquery_service):
@@ -194,7 +194,7 @@ def test_generate_user_report_with_filters(mock_get_mdo_id_org_list, mock_bigque
 
     # Clean up the generator to avoid ResourceWarning
     for _ in result:
-        pass
+        pass  # Explicitly exhaust the generator
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
 def test_generate_org_user_report_with_filters(mock_get_mdo_id_org_list, mock_bigquery_service):
@@ -245,7 +245,7 @@ def test_generate_org_user_report_with_filters(mock_get_mdo_id_org_list, mock_bi
 
         # Clean up the generator to avoid ResourceWarning
         for _ in result:
-            pass
+            pass  # Explicitly exhaust the generator
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
 def test_generate_report_no_data(mock_get_mdo_id_org_list, mock_bigquery_service):
@@ -368,7 +368,7 @@ def test_generate_org_user_report_with_masking(mock_get_mdo_id_org_list, mock_bi
         
         # Clean up the generator to avoid ResourceWarning
         for _ in result:
-            pass
+            pass  # Explicitly exhaust the generator
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
 def test_generate_report_with_full_report_required(mock_get_mdo_id_org_list, mock_bigquery_service):
@@ -402,7 +402,7 @@ def test_generate_report_with_full_report_required(mock_get_mdo_id_org_list, moc
     
     # Clean up the generator to avoid ResourceWarning
     for _ in result:
-        pass
+        pass  # Explicitly exhaust the generator
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
 def test_generate_user_report_with_invalid_org(mock_get_mdo_id_org_list, mock_bigquery_service):
@@ -459,7 +459,7 @@ def test_generate_user_report_with_valid_org(mock_get_mdo_id_org_list, mock_bigq
     
     # Clean up the generator to avoid ResourceWarning
     for _ in result:
-        pass
+        pass  # Explicitly exhaust the generator
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
 def test_generate_user_report_with_memory_error(mock_get_mdo_id_org_list, mock_bigquery_service):
@@ -541,7 +541,7 @@ def test_generate_report_with_updated_mdo_id_list_logic(mock_get_mdo_id_org_list
 
         # Clean up the generator to avoid ResourceWarning
         for _ in result:
-            pass
+            pass  # Explicitly exhaust the generator
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
 def test_generate_report_with_empty_filters(mock_get_mdo_id_org_list, mock_bigquery_service):
@@ -582,7 +582,7 @@ def test_generate_report_with_empty_filters(mock_get_mdo_id_org_list, mock_bigqu
 
     # Clean up the generator to avoid ResourceWarning
     for _ in result:
-        pass
+        pass  # Explicitly exhaust the generator
 
 @patch('app.services.report_service.ReportService._get_mdo_id_org_list')
 def test_generate_org_user_report_with_missing_columns(mock_get_mdo_id_org_list, mock_bigquery_service):
@@ -622,4 +622,4 @@ def test_generate_org_user_report_with_missing_columns(mock_get_mdo_id_org_list,
 
     # Clean up the generator to avoid ResourceWarning
     for _ in result:
-        pass
+        pass  # Explicitly exhaust the generator
