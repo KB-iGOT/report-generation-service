@@ -66,6 +66,7 @@ class GcsToBigQuerySyncService:
         full_target_table = f"{dataset}.{target_table}"
         try:
             # Delete the target table if it exists
+            logger.info(f"merge_key has been given: {merge_keys}")
             logger.info(f"Deleting table if exists: {full_target_table}")
             self.bq_client.delete_table(full_target_table, not_found_ok=True)
             logger.info(f"Deleted table: {full_target_table}")
