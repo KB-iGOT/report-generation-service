@@ -84,3 +84,12 @@ APAR_FILTER_KEY_MAP = json.loads(os.environ.get("APAR_FILTER_KEY_MAP", """
 }
 """))
 APAR_FILTER_KEY = os.environ.get("APAR_FILTER_KEY", "user_email,mobile_no,parichay_id,external_system_id")
+TEXT_CSV_HOLDER = 'text/csv'
+MALLOC_TRIM_HOLDER_MSG = 'inside malloc_trim'
+LIBC_SO_6 = 'libc.so.6'
+AND = 'AND'
+CLEANUP_MESSAGE = "Cleaned up DataFrame after streaming."
+UNEXPECTED_ERROR_MESSAGE = 'An unexpected error occurred. Please try again later.'
+GCP_APAR_ASSIGNED_COURSES_TABLE_NAME=os.environ.get('GCP_APAR_ASSIGNED_COURSES_TABLE_NAME', 'master_apar_assigned_courses')
+MASTER_APAR_ASSIGNED_COURSES_TABLE= f"{GCP_PROJECT}.{GCP_DB_NAME}.{GCP_APAR_ASSIGNED_COURSES_TABLE_NAME}"
+DOPT_EHRMS_EXTERNAL_SYSTEM_NAME = os.environ.get('DOPT_EHRMS_EXTERNAL_SYSTEM_NAME', 'DoPT eHRMS')

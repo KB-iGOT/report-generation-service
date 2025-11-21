@@ -42,6 +42,11 @@ def create_app():
         app.register_blueprint(report_controller_v2)
         from app.controllers.health_controller import health_controller
         app.register_blueprint(health_controller)
+        from app.controllers.apar_report_controller import report_controller as apar_report_controller
+        app.register_blueprint(apar_report_controller)
+        from app.controllers.ehrms_report_controller import ehrms_report_controller
+        app.register_blueprint(ehrms_report_controller)
+        logger.info("Blueprints registered successfully.")
     except Exception as e:
         app.logger.error(f"Blueprint registration failed: {e}")
         raise
