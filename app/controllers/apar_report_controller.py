@@ -27,10 +27,11 @@ def _get_assigned_courses_apar_report():
         required_columns = data.get('required_columns', [])
 
         validate_filters(filters)
-        validate_date_range(assigned_on_start_date, assigned_on_end_date)
+        # validate_date_range now returns normalized datetimes (start at 00:00:00, end at 23:59:59.999999)
+        start_dt, end_dt = validate_date_range(assigned_on_start_date, assigned_on_end_date)
 
-        logger.info(f"Generating APAR report from {assigned_on_start_date} to {assigned_on_end_date} with filters: {filters}")
-        csv_data = generate_report(assigned_on_start_date, assigned_on_end_date, filters, required_columns)
+        logger.info(f"Generating APAR report from {start_dt} to {end_dt} with filters: {filters}")
+        csv_data = generate_report(start_dt, end_dt, filters, required_columns)
 
         time_taken = round(time_module.time() - start_timer, 2)
         logger.info(f"APAR Report generated successfully in {time_taken} seconds")
@@ -82,8 +83,15 @@ def validate_filters(filters):
 def validate_date_range(start_date_str, end_date_str):
     start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
     end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+
+    # Normalize to full-day ranges (00:00:00 ... 23:59:59.999999)
+    start_date = datetime.combine(start_date.date(), time.min)
+    end_date = datetime.combine(end_date.date(), time.max)
+
     if (end_date - start_date).days > 365:
         raise ValueError('Date range cannot exceed 1 year')
+    # Return normalized datetimes so callers can use timestamped ranges
+    return start_date, end_date
 
 
 def generate_report(start_date, end_date, filters, required_columns):

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, Response, stream_with_context
-from app.services.report_service import ReportService
+from app.services.ehrms_report_service import EhrmsReportService
 from datetime import datetime, time
 import logging
 import gc
@@ -21,7 +21,7 @@ def get_user_enrolment_report():
         logger.info("Received request to generate report for ehrms")
     
         data = request.get_json()
-        start_date, end_date = _validate_and_parse_date_range(data)
+        start_date, end_date = _parse_and_validate_dates(data)
         if not start_date or not end_date:
             return jsonify({'error': 'Invalid input. Please provide start_date and end_date.'}), 400
 
@@ -52,7 +52,7 @@ def get_user_report():
         
         data = _validate_and_get_request_data()
         user_email, user_phone, ehrms_id = _extract_and_validate_user_identifiers(data)
-        start_date, end_date = _validate_and_parse_date_range(data)
+        start_date, end_date = _parse_and_validate_dates(data)
         required_columns = data.get('required_columns', [])
 
         # Read organization id header safely
@@ -61,7 +61,7 @@ def get_user_report():
         logger.info(f"Generating user report for userEmail={user_email}, userPhone={user_phone}, ehrmsId={ehrms_id}, orgId={x_org_id}")
         
         csv_data = _generate_user_report(user_email, user_phone, ehrms_id, start_date, end_date, x_org_id, required_columns)
-        response = _create_csv_response(csv_data, "user-report.csv")
+        response = _create_csv_response(csv_data, "user-enrolment-report.csv")
 
         time_taken = round(time_module.time() - start_timer, 2)
         logger.info(f"Report generated successfully in {time_taken} seconds")
@@ -112,7 +112,7 @@ def get_org_user_report():
         required_columns = data.get('required_columns', [])
 
         # Fetch report data - pass both ranges (one may be None) so service can validate which to use
-        csv_data = ReportService.fetch_master_user_data(
+        csv_data = EhrmsReportService.fetch_master_user_data(
             required_columns=required_columns,
             user_creation_start_date=user_creation_start_date,
             user_creation_end_date=user_creation_end_date,
@@ -174,7 +174,7 @@ def _parse_and_validate_dates(data):
 
 def _generate_report(start_date, end_date, required_columns):
     try:
-        return ReportService.fetch_master_enrolments_data(
+        return EhrmsReportService.fetch_master_enrolments_data(
             start_date, end_date, required_columns=required_columns
         )
     except Exception as e:
@@ -230,7 +230,7 @@ def _extract_and_validate_user_identifiers(data):
 
 def _generate_user_report(user_email, user_phone, ehrms_id, start_date, end_date, org_id, required_columns):
     try:
-        csv_data = ReportService.fetch_user_cumulative_report(
+        csv_data = EhrmsReportService.fetch_user_cumulative_report(
             user_email, user_phone, ehrms_id, start_date, end_date, org_id, required_columns
         )
         if not csv_data:

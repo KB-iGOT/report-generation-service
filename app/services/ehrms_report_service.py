@@ -114,7 +114,7 @@ class EhrmsReportService:
     def fetch_master_enrolments_data(start_date, end_date, required_columns):
         try:
             bigquery_service = BigQueryService()
-
+            external_system_name_filter = DOPT_EHRMS_EXTERNAL_SYSTEM_NAME
             # Add date filtering to the query if start_date and end_date are provided
             date_filter = ""
             if start_date and end_date:
@@ -123,7 +123,7 @@ class EhrmsReportService:
             query = f"""
                 SELECT * 
                 FROM `{MASTER_ENROLMENTS_TABLE}`
-                WHERE mdo_id in {date_filter}
+                WHERE external_system = '{external_system_name_filter}' {date_filter}
             """
 
             EhrmsReportService.logger.info(f"Executing enrolments query: {query}")
@@ -163,11 +163,11 @@ class EhrmsReportService:
             return None
 
     @staticmethod
-    def fetch_master_user_data(user_creation_start_date=None, user_creation_end_date=None, user_update_start_date=None, user_update_end_date=None, required_columns=None):
+    def fetch_master_user_data(user_creation_start_date=None, user_creation_end_date=None, user_updated_start_date=None, user_updated_end_date=None, required_columns=None):
         try:
             bigquery_service = BigQueryService()
             query = EhrmsReportService._build_user_data_query(
-                user_creation_start_date, user_creation_end_date, user_update_start_date, user_update_end_date
+                user_creation_start_date, user_creation_end_date, user_updated_start_date, user_updated_end_date
             )
             result_df = EhrmsReportService._execute_query(bigquery_service, query)
             if result_df is None:

@@ -43,9 +43,7 @@ class AparReportService:
     @staticmethod
     def _build_query_and_params(start_date, end_date, filters, table):
         date_filter = ""
-        if start_date and end_date:
-            date_filter = f" AND enrolled_on BETWEEN '{start_date}' AND '{end_date}'"
-
+        
         filter_key_map = APAR_FILTER_KEY_MAP
         filter_clauses = []
         params = []
@@ -64,7 +62,7 @@ class AparReportService:
         query = f"""
             SELECT *
             FROM `{table}`
-            WHERE {" AND ".join(filter_clauses)}{date_filter}
+            WHERE {" AND ".join(filter_clauses)}
         """
         return query, params
 
@@ -84,7 +82,13 @@ class AparReportService:
     @staticmethod
     def _generate_csv_stream(df):
         try:
+            # Work on a copy to avoid mutating the caller's DataFrame
+            df = df.copy()
             cols = df.columns.tolist()
+
+            # Ensure content_progress_percentage is set to 0 if present
+            if 'content_progress_percentage' in cols:
+                df['content_progress_percentage'] = 0
             yield '|'.join(cols) + '\n'
             for row in df.itertuples(index=False, name=None):
                 row_dict = dict(zip(cols, row))
