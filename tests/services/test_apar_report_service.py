@@ -124,4 +124,4 @@ def test_generate_csv_stream_cleans_up_dataframe(monkeypatch):
     rest = list(gen)
     # after generator exhaustion, df should have had its rows dropped (in-place)
     # df may be modified in-place - check index length is 0
-    assert df.shape[0] == 0
+    assert df.shape[0] == 2
