@@ -32,7 +32,7 @@ def get_user_enrolment_report():
 
         csv_data = _generate_report(start_date, end_date, required_columns)
         if not csv_data:
-            return jsonify({'error': 'No data found for the given organization ID.'}), 404
+            return jsonify({'error': 'No data found for the given  date range.'}), 404
 
         time_taken = round(time_module.time() - start_timer, 2)
         logger.info(f"Report generated successfully for ehrms in {time_taken} seconds")
@@ -55,12 +55,9 @@ def get_user_report():
         start_date, end_date = _parse_and_validate_dates(data)
         required_columns = data.get('required_columns', [])
 
-        # Read organization id header safely
-        x_org_id = request.headers.get('X-Org-Id')
-
-        logger.info(f"Generating user report for userEmail={user_email}, userPhone={user_phone}, ehrmsId={ehrms_id}, orgId={x_org_id}")
+        logger.info(f"Generating user report for userEmail={user_email}, userPhone={user_phone}, ehrmsId={ehrms_id}")
         
-        csv_data = _generate_user_report(user_email, user_phone, ehrms_id, start_date, end_date, x_org_id, required_columns)
+        csv_data = _generate_user_report(user_email, user_phone, ehrms_id, start_date, end_date, required_columns)
         response = _create_csv_response(csv_data, "user-enrolment-report.csv")
 
         time_taken = round(time_module.time() - start_timer, 2)
@@ -121,8 +118,8 @@ def get_org_user_report():
         )
 
         if not csv_data:
-            logger.warning("No data found for the organization.")
-            return _error_response("No data found for the given organization details.", 404)
+            logger.warning("No data found for the date range.")
+            return _error_response("No data found for the given date range.", 404)
 
         time_taken = round(time_module.time() - start_timer, 2)
         logger.info(f"Organization User Report generated successfully in {time_taken} seconds.")
@@ -228,10 +225,10 @@ def _extract_and_validate_user_identifiers(data):
     return user_email, user_phone, ehrms_id
 
 
-def _generate_user_report(user_email, user_phone, ehrms_id, start_date, end_date, org_id, required_columns):
+def _generate_user_report(user_email, user_phone, ehrms_id, start_date, end_date, required_columns):
     try:
         csv_data = EhrmsReportService.fetch_user_cumulative_report(
-            user_email, user_phone, ehrms_id, start_date, end_date, org_id, required_columns
+            user_email, user_phone, ehrms_id, start_date, end_date, required_columns
         )
         if not csv_data:
             logger.warning("No data found for the given user details.")
