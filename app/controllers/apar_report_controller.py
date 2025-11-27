@@ -4,7 +4,7 @@ from datetime import datetime, time
 import logging
 import gc
 import ctypes
-from constants import APAR_FILTER_KEY
+from constants import APAR_FILTER_KEY,IS_APAR_DATE_VALIDATION
 import time as time_module
 
 # Configure logger
@@ -87,9 +87,10 @@ def validate_date_range(start_date_str, end_date_str):
     # Normalize to full-day ranges (00:00:00 ... 23:59:59.999999)
     start_date = datetime.combine(start_date.date(), time.min)
     end_date = datetime.combine(end_date.date(), time.max)
+    if IS_APAR_DATE_VALIDATION.lower() == 'true':
+              if (end_date - start_date).days > 365:
+                raise ValueError('Date range cannot exceed 1 year')
 
-    if (end_date - start_date).days > 365:
-        raise ValueError('Date range cannot exceed 1 year')
     # Return normalized datetimes so callers can use timestamped ranges
     return start_date, end_date
 

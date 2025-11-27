@@ -6,7 +6,7 @@ import gc
 import ctypes
 import time as time_module
 from app.authentication.AccessTokenValidator import AccessTokenValidator
-from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED, X_ORG_ID, APAR_FILTER_KEY
+from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED, X_ORG_ID, APAR_FILTER_KEY, IS_APAR_DATE_VALIDATION
 from app.services.GcsToBigQuerySyncService import GcsToBigQuerySyncService
 import io
 import uuid
@@ -352,9 +352,11 @@ def get_apar_report():
         # Validate date range
         start_date = datetime.strptime(enrolment_start_date, '%Y-%m-%d')
         end_date = datetime.strptime(enrolment_end_date, '%Y-%m-%d')
-        if (end_date - start_date).days > 365:
-            logger.warning(f"Date range exceeds 1 year: start_date={start_date}, end_date={end_date}")
-            return jsonify({'error': 'Date range cannot exceed 1 year'}), 400
+        if IS_APAR_DATE_VALIDATION.lower() == 'true':
+             if (end_date - start_date).days > 365:
+                logger.warning(f"Date range exceeds 1 year: start_date={start_date}, end_date={end_date}")
+                return jsonify({'error': 'Date range cannot exceed 1 year'}), 400
+        
        
         logger.info(f"Generating APAR report from {start_date} to {end_date} with filters: {filters}")
         try:
