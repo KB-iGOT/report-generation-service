@@ -407,6 +407,11 @@ class ReportService:
 
             def generate_csv_stream(df, cols):
                 try:
+                    # Format content_progress_percentage to avoid scientific notation (0E-9)
+                    if 'content_progress_percentage' in cols:
+                        df['content_progress_percentage'] = df['content_progress_percentage'].apply(
+                            lambda x: float(f"{x:.2f}") if x is not None and x == 0 else x
+                        )
                     yield '|'.join(cols) + '\n'
                     for row in df.itertuples(index=False, name=None):
                         row_dict = dict(zip(cols, row))
