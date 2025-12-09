@@ -331,11 +331,8 @@ def get_apar_report():
         logger.info("Received request to generate APAR report")
         data = request.get_json()
         # Parse and validate new request fields
-        if not data or 'enrolment_start_date' not in data or 'enrolment_end_date' not in data:
-            raise KeyError("Missing 'enrolment_start_date' or 'enrolment_end_date' in request body.")
-
-        enrolment_start_date = data['enrolment_start_date']
-        enrolment_end_date = data['enrolment_end_date']
+        enrolment_start_date = data.get('enrolment_start_date')
+        enrolment_end_date = data.get('enrolment_end_date')
         filters = data.get('filters', {})
         required_columns = data.get('required_columns', [])
 
@@ -350,15 +347,15 @@ def get_apar_report():
                 return jsonify({'error': f"At least one of {', '.join(allowed_keys)} must be provided in filters."}), 400
 
         # Validate date range
-        start_date = datetime.strptime(enrolment_start_date, '%Y-%m-%d')
-        end_date = datetime.strptime(enrolment_end_date, '%Y-%m-%d')
-        if IS_APAR_DATE_VALIDATION.lower() == 'true':
-             if (end_date - start_date).days > 365:
-                logger.warning(f"Date range exceeds 1 year: start_date={start_date}, end_date={end_date}")
-                return jsonify({'error': 'Date range cannot exceed 1 year'}), 400
-        
-       
-        logger.info(f"Generating APAR report from {start_date} to {end_date} with filters: {filters}")
+        if enrolment_start_date and enrolment_end_date:
+            start_date = datetime.strptime(enrolment_start_date, '%Y-%m-%d')
+            end_date = datetime.strptime(enrolment_end_date, '%Y-%m-%d')
+            logger.info(f"Generating APAR report from {start_date} to {end_date} with filters: {filters}")
+            if IS_APAR_DATE_VALIDATION.lower() == 'true':
+                if (end_date - start_date).days > 365:
+                    logger.warning(f"Date range exceeds 1 year: start_date={start_date}, end_date={end_date}")
+                    return jsonify({'error': 'Date range cannot exceed 1 year'}), 400
+            
         try:
             # Call the service layer to fetch/process data from BQ
             csv_data = ReportService.fetch_apar_enrolment_report(
