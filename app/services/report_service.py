@@ -1,7 +1,7 @@
 import logging
 from app.services.fetch_data_bigQuery import BigQueryService
 from app.services.redis_service import RedisService
-from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE, MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_AGE, MASTER_APAR_TABLE, APAR_FILTER_KEY_MAP
+from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE, MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_AGE, MASTER_APAR_TABLE, APAR_FILTER_KEY_MAP, EXCLUDE_FOR_MASKED_ENABLED
 import gc
 import io
 from google.cloud import bigquery
@@ -186,6 +186,8 @@ class ReportService:
     def fetch_master_user_data(mdo_id,  is_full_report_required, required_columns=None, user_creation_start_date=None, user_creation_end_date=None):
         try:
             bigquery_service = BigQueryService()
+            # Normalize exclude list into a set for fast, robust membership checks
+            excluded_set = {s.strip() for s in (EXCLUDE_FOR_MASKED_ENABLED or "").split(',') if s and s.strip()}
             # Add date filtering to the query if start_date and end_date are provided
             date_filter = ""
             if user_creation_start_date and user_creation_end_date:
@@ -229,8 +231,9 @@ class ReportService:
                     yield '|'.join(cols) + '\n'
                     for row in df.itertuples(index=False, name=None):
                         row_dict = dict(zip(cols, row))
-                        if IS_MASKING_ENABLED.lower() == 'true':
-                        # Mask email
+                        skip_masking = str(mdo_id) in excluded_set
+                        if IS_MASKING_ENABLED.lower() == 'true' and not skip_masking:
+                            # Mask email
                             if 'email' in row_dict and row_dict['email']:
                                 parts = row_dict['email'].split('@')
                                 if len(parts) == 2:
