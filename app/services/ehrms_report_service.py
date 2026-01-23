@@ -80,7 +80,7 @@ class EhrmsReportService:
             WHERE user_id IN ({', '.join([f"'{uid}'" for uid in user_ids])})
         """
         if start_date and end_date:
-            enrollment_query += f" AND enrolled_on BETWEEN '{start_date}' AND '{end_date}'"
+            enrollment_query += f" AND (enrolled_on BETWEEN '{start_date}' AND '{end_date}' OR first_completed_on BETWEEN '{start_date}' AND '{end_date}')"
 
         EhrmsReportService.logger.info(f"Executing enrollment query: {enrollment_query}")
         return bigquery_service.run_query(enrollment_query)
@@ -118,7 +118,7 @@ class EhrmsReportService:
             # Add date filtering to the query if start_date and end_date are provided
             date_filter = ""
             if start_date and end_date:
-                date_filter = f" AND enrolled_on BETWEEN '{start_date}' AND '{end_date}'"
+                date_filter = f" AND (enrolled_on BETWEEN '{start_date}' AND '{end_date}' OR first_completed_on BETWEEN '{start_date}' AND '{end_date}')"
             
             query = f"""
                 SELECT * 

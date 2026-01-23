@@ -75,7 +75,7 @@ class ReportService:
             """
 
             if start_date and end_date:
-                enrollment_query += f" AND enrolled_on BETWEEN '{start_date}' AND '{end_date}'"
+                enrollment_query += f" AND (enrolled_on BETWEEN '{start_date}' AND '{end_date}' OR first_completed_on BETWEEN '{start_date}' AND '{end_date}')"
 
             ReportService.logger.info(f"Executing enrollment query: {enrollment_query}")
             enrollment_df = bigquery_service.run_query(enrollment_query)
@@ -126,7 +126,7 @@ class ReportService:
             # Add date filtering to the query if start_date and end_date are provided
             date_filter = ""
             if start_date and end_date:
-                date_filter = f" AND enrolled_on BETWEEN '{start_date}' AND '{end_date}'"
+                date_filter = f" AND (enrolled_on BETWEEN '{start_date}' AND '{end_date}' OR first_completed_on BETWEEN '{start_date}' AND '{end_date}')"
             if is_full_report_required:
                 # Dynamically fetch orgs using hierarchy
                 mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, mdo_id))
@@ -365,7 +365,7 @@ class ReportService:
             # Build dynamic filter clauses and parameters
             date_filter = ""
             if enrolment_start_date and enrolment_end_date:
-                date_filter = f" AND enrolled_on BETWEEN '{enrolment_start_date}' AND '{enrolment_end_date}'"
+                date_filter = f" AND (enrolled_on BETWEEN '{enrolment_start_date}' AND '{enrolment_end_date}' OR first_completed_on BETWEEN '{enrolment_start_date}' AND '{enrolment_end_date}')"
 
             # Map filter keys to BQ column names
             filter_key_map = APAR_FILTER_KEY_MAP
@@ -380,7 +380,7 @@ class ReportService:
 
             # Always add date filter
             if enrolment_start_date and enrolment_end_date:
-                filter_clauses.insert(0, "enrolled_on >= @start_date AND enrolled_on <= @end_date")
+                filter_clauses.insert(0, "(enrolled_on >= @start_date AND enrolled_on <= @end_date) OR (first_completed_on >= @start_date AND first_completed_on <= @end_date)")
                 params.insert(0, bigquery.ScalarQueryParameter("end_date", "TIMESTAMP", enrolment_end_date))
                 params.insert(0, bigquery.ScalarQueryParameter("start_date", "TIMESTAMP", enrolment_start_date))
 

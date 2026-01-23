@@ -102,7 +102,7 @@ class ReportServiceV2:
             
             # Add date filtering
             if start_date and end_date:
-                where_clause_parts.append(f"enrolled_on BETWEEN '{start_date}' AND '{end_date}'")
+                where_clause_parts.append(f"(enrolled_on BETWEEN '{start_date}' AND '{end_date}' OR first_completed_on BETWEEN '{start_date}' AND '{end_date}')")
             
             # Handle MDO ID filtering
             mdo_id_list = additional_filters.get('mdo_id_list', [])
@@ -262,7 +262,7 @@ class ReportServiceV2:
             
             # Add date filtering
             if start_date and end_date:
-                where_clause_parts.append(f"enrolled_on BETWEEN '{start_date}' AND '{end_date}'")
+                where_clause_parts.append(f"(enrolled_on BETWEEN '{start_date}' AND '{end_date}' OR first_completed_on BETWEEN '{start_date}' AND '{end_date}')")
             
             # Process additional filters
             where_clause_parts = ReportServiceV2._process_filters(additional_filters, USER_REPORT_FILTER_CONFIG, where_clause_parts)
