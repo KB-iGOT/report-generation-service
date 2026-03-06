@@ -58,6 +58,9 @@ def get_user_report():
         logger.info(f"Generating user report for userEmail={user_email}, userPhone={user_phone}, ehrmsId={ehrms_id}")
         
         csv_data = _generate_user_report(user_email, user_phone, ehrms_id, start_date, end_date, required_columns)
+        if not csv_data:
+            return jsonify({'error': 'No data found for given user for the provided date range.'}), 404
+
         response = _create_csv_response(csv_data, "user-enrolment-report.csv")
 
         time_taken = round(time_module.time() - start_timer, 2)
@@ -230,9 +233,6 @@ def _generate_user_report(user_email, user_phone, ehrms_id, start_date, end_date
         csv_data = EhrmsReportService.fetch_user_cumulative_report(
             user_email, user_phone, ehrms_id, start_date, end_date, required_columns
         )
-        if not csv_data:
-            logger.warning("No data found for the given user details.")
-            raise ValueError("No data found for the given user details.")
         return csv_data
     except Exception as e:
         logger.error(f"Error generating CSV stream: {str(e)}")

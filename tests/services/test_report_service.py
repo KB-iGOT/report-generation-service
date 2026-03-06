@@ -180,7 +180,8 @@ def test_fetch_master_enrolments_data_success(mock_bigquery_service):
         end_date=end_date,
         mdo_id='org1',
         is_full_report_required=False,
-        required_columns=['user_id', 'course_id', 'progress']
+        required_columns=['user_id', 'course_id', 'progress'],
+        is_apar_report=False
     )
     
     # Verify
@@ -222,7 +223,8 @@ def test_fetch_master_enrolments_data_full_report(mock_get_mdo_list, mock_bigque
         end_date=None,
         mdo_id='org1',
         is_full_report_required=True,
-        required_columns=None
+        required_columns=None,
+        is_apar_report=False
     )
     
     # Verify
@@ -249,7 +251,8 @@ def test_fetch_master_enrolments_data_no_data(mock_bigquery_service):
         end_date=None,
         mdo_id='org1',
         is_full_report_required=False,
-        required_columns=None
+        required_columns=None,
+        is_apar_report=False
     )
     
     # Verify
@@ -268,7 +271,8 @@ def test_fetch_master_enrolments_data_exception(mock_bigquery_service):
         end_date=None,
         mdo_id='org1',
         is_full_report_required=False,
-        required_columns=None
+        required_columns=None,
+        is_apar_report=False
     )
     
     # Verify
@@ -663,7 +667,8 @@ def test_fetch_master_enrolments_data_with_missing_columns(mock_bigquery_service
         end_date=None,
         mdo_id='org1',
         is_full_report_required=False,
-        required_columns=['user_id', 'course_id', 'progress']  # 'progress' missing
+        required_columns=['user_id', 'course_id', 'progress'],
+        is_apar_report=False 
     )
     
     # Verify

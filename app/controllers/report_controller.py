@@ -63,6 +63,7 @@ def get_report(org_id):
         # New parameters from request body
         is_full_report_required = data.get('isFullReportRequired', False)
         required_columns = data.get('required_columns', [])
+        is_apar_report = data.get('isAparReport', False)
          
         logger.info(f"Generating report for org_id={org_id} from {start_date} to {end_date}")
          #Validate date range
@@ -73,7 +74,7 @@ def get_report(org_id):
         try:
             csv_data = ReportService.fetch_master_enrolments_data(
                 start_date, end_date, org_id, is_full_report_required,
-                required_columns=required_columns
+                required_columns=required_columns, is_apar_report=is_apar_report
             )
 
             if not csv_data:
