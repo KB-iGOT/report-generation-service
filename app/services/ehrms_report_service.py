@@ -183,9 +183,9 @@ class EhrmsReportService:
         date_filter = ""
         external_system_name_filter = DOPT_EHRMS_EXTERNAL_SYSTEM_NAME
         if user_creation_start_date and user_creation_end_date:
-            date_filter = f" AND user_registration_date BETWEEN '{user_creation_start_date}' AND '{user_creation_end_date}'"
+            date_filter = f" AND (user_registration_date BETWEEN '{user_creation_start_date}' AND '{user_creation_end_date}' OR profile_last_updated_date BETWEEN '{user_creation_start_date}' AND '{user_creation_end_date}')"
         if user_update_start_date and user_update_end_date:
-            date_filter += f" AND last_updated_on BETWEEN '{user_update_start_date}' AND '{user_update_end_date}'"
+            date_filter += f" AND profile_last_updated_date BETWEEN '{user_update_start_date}' AND '{user_update_end_date}'"
         query = f"""
             SELECT * 
             FROM `{MASTER_USER_TABLE}`

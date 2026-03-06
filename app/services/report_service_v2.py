@@ -342,7 +342,10 @@ class ReportServiceV2:
             
             # Add date filtering
             if user_creation_start_date and user_creation_end_date:
-                where_clause_parts.append(f"user_registration_date BETWEEN '{user_creation_start_date}' AND '{user_creation_end_date}'")
+                where_clause_parts.append(
+                    f"(user_registration_date BETWEEN '{user_creation_start_date}' AND '{user_creation_end_date}' "
+                    f"OR profile_last_updated_date BETWEEN '{user_creation_start_date}' AND '{user_creation_end_date}')"
+                )
             
             # Handle MDO ID filtering
             mdo_id_list = additional_filters.get('mdo_id_list', [])
