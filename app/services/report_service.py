@@ -1,4 +1,5 @@
 import logging
+import pandas as pd
 from app.services.fetch_data_bigQuery import BigQueryService
 from app.services.redis_service import RedisService
 from constants import MASTER_ENROLMENTS_TABLE, MASTER_USER_TABLE, MASTER_ORG_HIERARCHY_TABLE, IS_MASKING_ENABLED, MAX_ORG_CACHE_AGE, MASTER_APAR_TABLE, APAR_FILTER_KEY_MAP, EXCLUDE_FOR_MASKED_ENABLED
@@ -402,6 +403,10 @@ class ReportService:
             ReportService.logger.info(f"Executing APAR enrolment query: {query} with params: {params}")
             df = client.query(query, job_config=job_config).to_dataframe()
 
+            # Deduplicate "Comprehensive Assessment Program" records
+            df = ReportService._deduplicate_comprehensive_assessment_program(df)
+            ReportService.logger.info(f"After Comprehensive Assessment Program deduplication: {len(df)} rows.")
+
             # Filter columns if required
             if required_columns:
                 filtered_cols = [col for col in required_columns if col in df.columns]
@@ -448,3 +453,68 @@ class ReportService:
         except Exception as e:
             ReportService.logger.error(f"Error fetching APAR enrolment report: {e}")
             return None
+
+    @staticmethod
+    def _select_curated_record(group, has_assessment_col, has_last_accessed_col):
+        """Select the best record from a group of Curated Program enrolments for one user."""
+        if has_assessment_col:
+            pass_records = group[group['comprehensive_level_assessment_status'] == 'Pass']
+            if not pass_records.empty:
+                return pass_records.iloc[[0]]
+
+            fail_records = group[group['comprehensive_level_assessment_status'] == 'Fail']
+            if not fail_records.empty:
+                return fail_records.iloc[[0]]
+
+        if has_last_accessed_col:
+            sorted_group = group.sort_values('content_last_accessed_on', ascending=False, na_position='last')
+            return sorted_group.iloc[[0]]
+
+        return group.iloc[[0]]
+
+    @staticmethod
+    def _deduplicate_comprehensive_assessment_program(df):
+        """
+        Deduplicate records where content_sub_type = 'Comprehensive Assessment Program'.
+        For each user with more than 1 such enrolment:
+          1. If any record has comprehensive_level_assessment_status = 'Pass', keep one Pass record.
+          2. Else if any record is 'Fail', keep one Fail record.
+          3. Else keep the record with the latest content_last_accessed_on.
+        Non-'Comprehensive Assessment Program' records are returned unchanged.
+        """
+        if 'content_sub_type' not in df.columns:
+            ReportService.logger.info("Column 'content_sub_type' not found; skipping Comprehensive Assessment Program dedup.")
+            return df
+
+        curated_mask = df['content_sub_type'] == 'Comprehensive Assessment Program'
+        non_curated_df = df[~curated_mask]
+        curated_df = df[curated_mask]
+
+        if curated_df.empty:
+            return df
+
+        user_counts = curated_df.groupby('user_id').size()
+        multi_enrol_users = set(user_counts[user_counts > 1].index)
+
+        if not multi_enrol_users:
+            return df
+
+        single_enrol_curated = curated_df[~curated_df['user_id'].isin(multi_enrol_users)]
+        multi_enrol_curated = curated_df[curated_df['user_id'].isin(multi_enrol_users)]
+
+        has_assessment_col = 'comprehensive_level_assessment_status' in df.columns
+        has_last_accessed_col = 'content_last_accessed_on' in df.columns
+
+        deduped_rows = [
+            ReportService._select_curated_record(group, has_assessment_col, has_last_accessed_col)
+            for _, group in multi_enrol_curated.groupby('user_id')
+        ]
+
+        deduped_df = pd.concat(deduped_rows, ignore_index=True) if deduped_rows else pd.DataFrame(columns=df.columns)
+
+        result = pd.concat([non_curated_df, single_enrol_curated, deduped_df], ignore_index=True)
+        ReportService.logger.info(
+            f"Comprehensive Assessment Program dedup: {len(curated_df)} -> {len(single_enrol_curated) + len(deduped_df)} rows "
+            f"({len(multi_enrol_users)} users had multiple enrolments)."
+        )
+        return result
