@@ -22,4 +22,4 @@ USER appuser
 EXPOSE 5000
 
 # Run the app using Gunicorn
-CMD ["gunicorn", "-w", "2", "--threads", "4", "-b", "0.0.0.0:5000", "--timeout", "900", "--max-requests", "100", "--max-requests-jitter", "10", "app:create_app()"]
+CMD ["gunicorn","-w","4","--threads","2","-k","gthread","-b","0.0.0.0:5000","--timeout","900","--keep-alive","5","--max-requests","3000","--max-requests-jitter","300","app:create_app()"]
