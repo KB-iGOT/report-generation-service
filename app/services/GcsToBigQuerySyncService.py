@@ -4,6 +4,7 @@ import time
 from google.cloud import bigquery
 from constants import GCP_CREDENTIALS_PATH, SYNC_TABLES, DATASET
 import constants as Constants
+from google.cloud import storage
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +20,7 @@ class GcsToBigQuerySyncService:
             logger.warning("No credentials path set in Config.")
         self.client = bigquery.Client()
         self.bq_client = bigquery.Client()
+        self.storage_client = storage.Client()
 
     def sync_all_tables(self):
         try:
@@ -65,6 +67,12 @@ class GcsToBigQuerySyncService:
     def merge_parquet_to_bq(self, gcs_uri, dataset, target_table, merge_keys):
         full_target_table = f"{dataset}.{target_table}"
         try:
+            # Check parquet existence first
+            if not self.gcs_file_exists(gcs_uri):
+                logger.warning(f"Parquet file not found: {gcs_uri}. "f"Skipping sync for {full_target_table}")
+                return
+            logger.info(f"Parquet file found: {gcs_uri}")
+
             # Delete the target table if it exists
             logger.info(f"Deleting table if exists: {full_target_table}")
             self.bq_client.delete_table(full_target_table, not_found_ok=True)
@@ -79,3 +87,24 @@ class GcsToBigQuerySyncService:
         except Exception as e:
             logger.error(f"Error replacing table {target_table}: {e}", exc_info=True)
             raise
+
+    def gcs_file_exists(self, gcs_uri):
+        try:
+            gcs_uri = gcs_uri.replace("gs://", "")
+            bucket_name, blob_name = gcs_uri.split("/", 1)
+            bucket = self.storage_client.bucket(bucket_name)
+            blob = bucket.blob(blob_name)
+            if not blob.exists():
+                logger.warning(f"GCS file does not exist: {gcs_uri}")
+                return False
+
+            blob.reload()
+            if blob.size is None or blob.size == 0:
+                logger.warning(f"GCS file is empty: {gcs_uri}")
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to check GCS file existence: {gcs_uri}, Error: {e}")
+            return False
