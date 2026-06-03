@@ -94,7 +94,16 @@ class GcsToBigQuerySyncService:
             bucket_name, blob_name = gcs_uri.split("/", 1)
             bucket = self.storage_client.bucket(bucket_name)
             blob = bucket.blob(blob_name)
-            return blob.exists()
+            if not blob.exists():
+                logger.warning(f"GCS file does not exist: {gcs_uri}")
+                return False
+
+            blob.reload()
+            if blob.size is None or blob.size == 0:
+                logger.warning(f"GCS file is empty: {gcs_uri}")
+                return False
+
+            return True
 
         except Exception as e:
             logger.error(f"Failed to check GCS file existence: {gcs_uri}, Error: {e}")
