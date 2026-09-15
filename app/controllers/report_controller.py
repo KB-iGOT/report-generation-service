@@ -5,6 +5,7 @@ import logging
 import gc
 import ctypes
 import time as time_module
+import re
 from app.authentication.AccessTokenValidator import AccessTokenValidator
 from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED, X_ORG_ID, APAR_FILTER_KEY, IS_APAR_DATE_VALIDATION
 from app.services.GcsToBigQuerySyncService import GcsToBigQuerySyncService
@@ -18,6 +19,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 report_controller = Blueprint('report_controller', __name__)
+
+# training_plan_year bounds for /report/apar/enrolment
+# used for the equivalent field on /report/apar/assigned/courses, kept
+# here too since this file doesn't import from that controller.
+MIN_TRAINING_PLAN_YEAR = 2000
+MAX_TRAINING_PLAN_YEAR_OFFSET = 2
+TRAINING_PLAN_YEAR_PATTERN = re.compile(r'^(\d{4})-(\d{2})$')
 
 @report_controller.route('/report/org/enrolment/<org_id>', methods=['POST'])
 def get_report(org_id):
@@ -66,7 +74,7 @@ def get_report(org_id):
         is_apar_report = data.get('isAparReport', False)
          
         logger.info(f"Generating report for org_id={org_id} from {start_date} to {end_date}")
-         #Validate date range
+        #Validate date range
         if (end_date - start_date).days > 365:
             logger.warning(f"Date range exceeds 1 year: start_date={start_date}, end_date={end_date}")
             return jsonify({'error': 'Date range cannot exceed 1 year'}), 400
@@ -122,7 +130,7 @@ def get_report(org_id):
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
         return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
-    finally: 
+    finally:
         gc.collect()
         try:
             logger.info("inside malloc_trim:")
@@ -179,7 +187,7 @@ def get_user_report(orgId):
         required_columns = data.get('required_columns', [])
 
         logger.info(f"Generating user report for userEmail={user_email}, userPhone={user_phone}, ehrmsId={ehrms_id}")
-        
+
         try:
             csv_data = ReportService.fetch_user_cumulative_report(
                 user_email, user_phone, ehrms_id, start_date, end_date, orgId,
@@ -205,8 +213,8 @@ def get_user_report(orgId):
                 "Content-Disposition": f'attachment; filename="user-report.csv"'
             }
         )
-        
-         # Explicitly trigger garbage collection to free up memory
+
+        # Explicitly trigger garbage collection to free up memory
         del csv_data
         gc.collect()
 
@@ -221,7 +229,7 @@ def get_user_report(orgId):
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
         return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
-    finally: 
+    finally:
         gc.collect()
         try:
             logger.info("inside malloc_trim:")
@@ -241,8 +249,8 @@ def get_org_user_report(orgId):
             return jsonify({'error': 'Organization ID is required.'}), 400
         if not ReportService.isValidOrg(x_org_id, orgId):
             logger.error(f"Invalid organization ID: {orgId}")
-            return jsonify({'error': f'Not authorized to view the report for : {orgId}'}), 401        
-        # Parse and validate input parameters
+            return jsonify({'error': f'Not authorized to view the report for : {orgId}'}), 401
+            # Parse and validate input parameters
         data = request.get_json()
         if not data:
             logger.error("Request body is missing")
@@ -267,7 +275,7 @@ def get_org_user_report(orgId):
 
 
         logger.info(f"Generating user report for orgId={orgId}")
-        
+
         try:
             csv_data = ReportService.fetch_master_user_data(
                 orgId, is_full_report_required, required_columns=required_columns, user_creation_start_date=user_creation_start_date, user_creation_end_date=user_creation_end_date
@@ -292,8 +300,8 @@ def get_org_user_report(orgId):
                 "Content-Disposition": f'attachment; filename="user-report.csv"'
             }
         )
-        
-         # Explicitly trigger garbage collection to free up memory
+
+        # Explicitly trigger garbage collection to free up memory
         del csv_data
         gc.collect()
 
@@ -308,7 +316,7 @@ def get_org_user_report(orgId):
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
         return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
-    finally: 
+    finally:
         gc.collect()
         try:
             logger.info("inside malloc_trim:")
@@ -337,6 +345,41 @@ def get_apar_report():
         filters = data.get('filters', {})
         required_columns = data.get('required_columns', [])
 
+        # training_plan_year is optional. If not provided, no year filter is
+        # applied and existing behavior remains unchanged. If provided, it must
+        # be a valid financial year in "YYYY-YY" format (e.g. "2025-26");
+        # otherwise, return 400 before reaching the service layer. Validation
+        # is kept inline to match this file's existing style.
+        training_plan_year = data.get('training_plan_year')
+        if training_plan_year is not None:
+            match = TRAINING_PLAN_YEAR_PATTERN.match(str(training_plan_year).strip())
+            if not match:
+                return jsonify({
+                    'error': f"training_plan_year must be in financial year format YYYY-YY (e.g. 2025-26), got: {training_plan_year!r}"
+                }), 400
+
+            start_year = int(match.group(1))
+            expected_suffix = f"{(start_year + 1) % 100:02d}"
+            if match.group(2) != expected_suffix:
+                return jsonify({
+                    'error': f"training_plan_year must be a valid financial year, expected {start_year}-{expected_suffix}, got: {training_plan_year!r}"
+                }), 400
+
+            # Financial year runs April to March, so the "current" FY start
+            # year rolls over in April rather than on the calendar new year.
+            today = datetime.now()
+            current_fy_start_year = today.year if today.month >= 4 else today.year - 1
+            max_fy_start_year = current_fy_start_year + MAX_TRAINING_PLAN_YEAR_OFFSET
+
+            if not (MIN_TRAINING_PLAN_YEAR <= start_year <= max_fy_start_year):
+                min_fy = f"{MIN_TRAINING_PLAN_YEAR}-{(MIN_TRAINING_PLAN_YEAR + 1) % 100:02d}"
+                max_fy = f"{max_fy_start_year}-{(max_fy_start_year + 1) % 100:02d}"
+                return jsonify({
+                    'error': f"training_plan_year must be between {min_fy} and {max_fy}, got: {training_plan_year!r}"
+                }), 400
+
+            training_plan_year = f"{start_year}-{expected_suffix}"
+
         # Validate filters keys if filters present
         if filters:
             allowed_keys = APAR_FILTER_KEY.split(',')
@@ -351,16 +394,17 @@ def get_apar_report():
         if enrolment_start_date and enrolment_end_date:
             start_date = datetime.strptime(enrolment_start_date, '%Y-%m-%d')
             end_date = datetime.strptime(enrolment_end_date, '%Y-%m-%d')
-            logger.info(f"Generating APAR report from {start_date} to {end_date} with filters: {filters}")
+            logger.info(f"Generating APAR report from {start_date} to {end_date} with filters: {filters}, training_plan_year: {training_plan_year}")
             if IS_APAR_DATE_VALIDATION.lower() == 'true':
                 if (end_date - start_date).days > 365:
                     logger.warning(f"Date range exceeds 1 year: start_date={start_date}, end_date={end_date}")
                     return jsonify({'error': 'Date range cannot exceed 1 year'}), 400
-            
+
         try:
             # Call the service layer to fetch/process data from BQ
             csv_data = ReportService.fetch_apar_enrolment_report(
-                enrolment_start_date, enrolment_end_date, filters, required_columns
+                enrolment_start_date, enrolment_end_date, filters, required_columns,
+                training_plan_year=training_plan_year
             )
 
             if not csv_data:
@@ -406,7 +450,7 @@ def get_apar_report():
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
         return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
-    finally: 
+    finally:
         gc.collect()
         try:
             logger.info("inside malloc_trim:")

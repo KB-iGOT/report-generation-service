@@ -55,19 +55,19 @@ class ReportService:
 
             user_ids = user_df["user_id"].tolist()
             ReportService.logger.info(f"Fetched {len(user_ids)} users.")
-            
+
             # Get the user's MDO ID
             user_mdo_id = user_df["mdo_id"].iloc[0]  # Get the first user's MDO ID
-            
+
             # Check if organization ID is valid
             if orgId and orgId != user_mdo_id:
                 mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, orgId))
                 mdo_id_org_list.append(orgId)  # Include the orgId itself
-                
+
                 if user_mdo_id not in mdo_id_org_list:
                     ReportService.logger.error(f"Invalid organization ID for user: {orgId}")
                     raise ValueError(f"Invalid organization ID for user: {orgId}")
-            
+
             # Construct the query for fetching enrollment data
             enrollment_query = f"""
                 SELECT *
@@ -195,10 +195,10 @@ class ReportService:
                 date_filter = f" AND (user_registration_date BETWEEN '{user_creation_start_date}' AND '{user_creation_end_date}' OR profile_last_updated_date BETWEEN '{user_creation_start_date}' AND '{user_creation_end_date}')"
             if is_full_report_required:
                 mdo_id_org_list = list(ReportService._get_mdo_id_org_list(bigquery_service, mdo_id))
-                mdo_id_org_list.append(mdo_id) 
-            else: 
-                mdo_id_org_list = [mdo_id]   
-            
+                mdo_id_org_list.append(mdo_id)
+            else:
+                mdo_id_org_list = [mdo_id]
+
             mdo_id_list = [f"'{mid}'" for mid in mdo_id_org_list]  # Quote each ID
             mdo_id_str = ', '.join(mdo_id_list)  # Join them with commas
             query = f"""
@@ -272,13 +272,13 @@ class ReportService:
     @staticmethod
     def _get_mdo_id_org_list(bigquery_service: BigQueryService, mdo_id: str) -> list:
         redis_service = RedisService()
-        
+
         # Try to get from Redis cache
         cached_value = redis_service.get_value(mdo_id)
         if cached_value is not None:
             ReportService.logger.info(f"Cache hit for mdo_id: {mdo_id}")
             return cached_value
-            
+
         ReportService.logger.info(f"Cache miss for mdo_id: {mdo_id}. Fetching from BigQuery.")
         org_hierarchy_query = f"""
             DECLARE input_id STRING;
@@ -322,7 +322,7 @@ class ReportService:
 
         # Store in Redis cache
         redis_service.set_value(mdo_id, mdo_id_org_list, ttl=int(MAX_ORG_CACHE_AGE))
-        
+
         return mdo_id_org_list
 
     @staticmethod
@@ -355,7 +355,7 @@ class ReportService:
             return False
 
     @staticmethod
-    def fetch_apar_enrolment_report(enrolment_start_date, enrolment_end_date, filters, required_columns):
+    def fetch_apar_enrolment_report(enrolment_start_date, enrolment_end_date, filters, required_columns, training_plan_year=None):
         """
         Fetch data from BQ table master_enrolment_apar_dummy, apply filters, and return CSV stream.
         """
@@ -377,7 +377,13 @@ class ReportService:
                 if value and key in filter_key_map:
                     bq_col = filter_key_map[key]
                     filter_clauses.append(f"{bq_col} = @{bq_col}")
-                    params.append(bigquery.ScalarQueryParameter(bq_col, "STRING", value.strip()))       
+                    params.append(bigquery.ScalarQueryParameter(bq_col, "STRING", value.strip()))
+
+            # training_plan_year is validated by the controller as a financial
+            # year string (e.g. "2025-26") and passed through as-is.
+            if training_plan_year is not None:
+                filter_clauses.append("training_plan_year = @training_plan_year")
+                params.append(bigquery.ScalarQueryParameter("training_plan_year", "STRING", str(training_plan_year).strip()))
 
             # Always add date filter
             if enrolment_start_date and enrolment_end_date:
@@ -398,7 +404,7 @@ class ReportService:
                     FROM `{table}`{date_filter}
                 """
 
-    
+
             job_config = bigquery.QueryJobConfig(query_parameters=params)
             ReportService.logger.info(f"Executing APAR enrolment query: {query} with params: {params}")
             df = client.query(query, job_config=job_config).to_dataframe()
