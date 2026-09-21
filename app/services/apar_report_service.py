@@ -14,7 +14,7 @@ class AparReportService:
     logger = logging.getLogger(__name__)
 
     @staticmethod
-    def fetch_apar_assigned_courses_report(assigned_on_start_date, assigned_on_end_date, filters, required_columns, training_plan_year=None):
+    def fetch_apar_assigned_courses_report(assigned_on_start_date, assigned_on_end_date, filters, required_columns, plan_year=None):
         """
         Fetch data from BQ table master_enrolment_apar_dummy, apply filters, and return CSV stream.
         """
@@ -24,7 +24,7 @@ class AparReportService:
 
             # Build query and parameters
             query, params = AparReportService._build_query_and_params(
-                assigned_on_start_date, assigned_on_end_date, filters, table, training_plan_year
+                assigned_on_start_date, assigned_on_end_date, filters, table, plan_year
             )
 
             # Execute query
@@ -41,8 +41,7 @@ class AparReportService:
             return None
 
     @staticmethod
-    def _build_query_and_params(start_date, end_date, filters, table, training_plan_year=None):
-        date_filter = ""
+    def _build_query_and_params(start_date, end_date, filters, table, plan_year=None):
 
         filter_key_map = APAR_FILTER_KEY_MAP
         filter_clauses = []
@@ -54,11 +53,11 @@ class AparReportService:
                 filter_clauses.append(f"{bq_col} = @{bq_col}")
                 params.append(bigquery.ScalarQueryParameter(bq_col, "STRING", value.strip()))
 
-        # training_plan_year is validated by the controller as a financial
+        # plan_year is validated by the controller as a financial
         # year string (e.g. "2025-26") and passed through as-is.
-        if training_plan_year is not None:
-            filter_clauses.append("training_plan_year = @training_plan_year")
-            params.append(bigquery.ScalarQueryParameter("training_plan_year", "STRING", str(training_plan_year).strip()))
+        if plan_year is not None:
+            filter_clauses.append("plan_year = @plan_year")
+            params.append(bigquery.ScalarQueryParameter("plan_year", "STRING", str(plan_year).strip()))
 
         if start_date and end_date:
             filter_clauses.insert(0, "assigned_on >= @start_date AND assigned_on <= @end_date")

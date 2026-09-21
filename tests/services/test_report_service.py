@@ -1121,3 +1121,117 @@ def test_fetch_apar_enrolment_report_filtered_columns(mock_bigquery_service_clas
     # Clean up generator
     for _ in result:
         pass
+
+@patch('app.services.report_service.BigQueryService')
+def test_fetch_apar_enrolment_report_with_plan_year(mock_bigquery_service):
+    """Test APAR enrolment report generation with plan_year."""
+    mock_instance = MagicMock()
+    mock_bigquery_service.return_value = mock_instance
+
+    mock_instance.query.return_value.to_dataframe.return_value = pd.DataFrame([
+        {"user_email": "test@example.com"}
+    ])
+
+    result = ReportService.fetch_apar_enrolment_report(
+        '2023-01-01T00:00:00',
+        '2023-01-31T23:59:59',
+        {'user_email': 'test@example.com'},
+        ['col1', 'col2'],
+        plan_year='2025-26'
+    )
+
+    assert result is not None
+    mock_instance.query.assert_called_once()
+
+    args, kwargs = mock_instance.query.call_args
+
+    query = args[0]
+    job_config = kwargs.get('job_config')
+
+    assert 'plan_year = @plan_year' in query
+
+    plan_year_param = next(
+        param for param in job_config.query_parameters
+        if param.name == 'plan_year'
+    )
+
+    assert plan_year_param.value == '2025-26'
+
+    for _ in result:
+        pass
+
+
+@patch('app.services.report_service.BigQueryService')
+def test_fetch_apar_enrolment_report_without_plan_year(mock_bigquery_service):
+    """Test APAR enrolment report generation without plan_year."""
+    mock_instance = MagicMock()
+    mock_bigquery_service.return_value = mock_instance
+
+    mock_instance.query.return_value.to_dataframe.return_value = pd.DataFrame([
+        {"user_email": "test@example.com"}
+    ])
+
+    result = ReportService.fetch_apar_enrolment_report(
+        '2023-01-01T00:00:00',
+        '2023-01-31T23:59:59',
+        {'user_email': 'test@example.com'},
+        ['col1', 'col2']
+    )
+
+    assert result is not None
+    mock_instance.query.assert_called_once()
+
+    args, kwargs = mock_instance.query.call_args
+
+    query = args[0]
+    job_config = kwargs.get('job_config')
+
+    assert 'plan_year = @plan_year' not in query
+
+    assert not any(
+        param.name == 'plan_year'
+        for param in job_config.query_parameters
+    )
+
+    for _ in result:
+        pass
+
+
+@patch('app.services.report_service.BigQueryService')
+def test_fetch_apar_enrolment_report_plan_year_with_whitespace(
+        mock_bigquery_service):
+    """Test APAR enrolment report generation with plan_year containing whitespace."""
+    mock_instance = MagicMock()
+    mock_bigquery_service.return_value = mock_instance
+
+    mock_instance.query.return_value.to_dataframe.return_value = pd.DataFrame([
+        {"user_email": "test@example.com"}
+    ])
+
+    result = ReportService.fetch_apar_enrolment_report(
+        '2023-01-01T00:00:00',
+        '2023-01-31T23:59:59',
+        {'user_email': 'test@example.com'},
+        ['col1', 'col2'],
+        plan_year=' 2025-26 '
+    )
+
+    assert result is not None
+    mock_instance.query.assert_called_once()
+
+    args, kwargs = mock_instance.query.call_args
+
+    query = args[0]
+    job_config = kwargs.get('job_config')
+
+    assert 'plan_year = @plan_year' in query
+
+    plan_year_param = next(
+        param for param in job_config.query_parameters
+        if param.name == 'plan_year'
+    )
+
+    assert plan_year_param.value == '2025-26'
+
+    for _ in result:
+        pass

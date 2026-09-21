@@ -20,12 +20,12 @@ logger = logging.getLogger(__name__)
 
 report_controller = Blueprint('report_controller', __name__)
 
-# training_plan_year bounds for /report/apar/enrolment
+# plan_year bounds for /report/apar/enrolment
 # used for the equivalent field on /report/apar/assigned/courses, kept
 # here too since this file doesn't import from that controller.
-MIN_TRAINING_PLAN_YEAR = 2000
-MAX_TRAINING_PLAN_YEAR_OFFSET = 2
-TRAINING_PLAN_YEAR_PATTERN = re.compile(r'^(\d{4})-(\d{2})$')
+MIN_PLAN_YEAR = 2000
+MAX_PLAN_YEAR_OFFSET = 2
+PLAN_YEAR_PATTERN = re.compile(r'^(\d{4})-(\d{2})$')
 
 @report_controller.route('/report/org/enrolment/<org_id>', methods=['POST'])
 def get_report(org_id):
@@ -345,40 +345,40 @@ def get_apar_report():
         filters = data.get('filters', {})
         required_columns = data.get('required_columns', [])
 
-        # training_plan_year is optional. If not provided, no year filter is
+        # plan_year is optional. If not provided, no year filter is
         # applied and existing behavior remains unchanged. If provided, it must
         # be a valid financial year in "YYYY-YY" format (e.g. "2025-26");
         # otherwise, return 400 before reaching the service layer. Validation
         # is kept inline to match this file's existing style.
-        training_plan_year = data.get('training_plan_year')
-        if training_plan_year is not None:
-            match = TRAINING_PLAN_YEAR_PATTERN.match(str(training_plan_year).strip())
+        plan_year = data.get('plan_year')
+        if plan_year is not None:
+            match = PLAN_YEAR_PATTERN.match(str(plan_year).strip())
             if not match:
                 return jsonify({
-                    'error': f"training_plan_year must be in financial year format YYYY-YY (e.g. 2025-26), got: {training_plan_year!r}"
+                    'error': f"plan_year must be in financial year format YYYY-YY (e.g. 2025-26), got: {plan_year!r}"
                 }), 400
 
             start_year = int(match.group(1))
             expected_suffix = f"{(start_year + 1) % 100:02d}"
             if match.group(2) != expected_suffix:
                 return jsonify({
-                    'error': f"training_plan_year must be a valid financial year, expected {start_year}-{expected_suffix}, got: {training_plan_year!r}"
+                    'error': f"plan_year must be a valid financial year, expected {start_year}-{expected_suffix}, got: {plan_year!r}"
                 }), 400
 
             # Financial year runs April to March, so the "current" FY start
             # year rolls over in April rather than on the calendar new year.
             today = datetime.now()
             current_fy_start_year = today.year if today.month >= 4 else today.year - 1
-            max_fy_start_year = current_fy_start_year + MAX_TRAINING_PLAN_YEAR_OFFSET
+            max_fy_start_year = current_fy_start_year + MAX_PLAN_YEAR_OFFSET
 
-            if not (MIN_TRAINING_PLAN_YEAR <= start_year <= max_fy_start_year):
-                min_fy = f"{MIN_TRAINING_PLAN_YEAR}-{(MIN_TRAINING_PLAN_YEAR + 1) % 100:02d}"
+            if not (MIN_PLAN_YEAR <= start_year <= max_fy_start_year):
+                min_fy = f"{MIN_PLAN_YEAR}-{(MIN_PLAN_YEAR + 1) % 100:02d}"
                 max_fy = f"{max_fy_start_year}-{(max_fy_start_year + 1) % 100:02d}"
                 return jsonify({
-                    'error': f"training_plan_year must be between {min_fy} and {max_fy}, got: {training_plan_year!r}"
+                    'error': f"plan_year must be between {min_fy} and {max_fy}, got: {plan_year!r}"
                 }), 400
 
-            training_plan_year = f"{start_year}-{expected_suffix}"
+            plan_year = f"{start_year}-{expected_suffix}"
 
         # Validate filters keys if filters present
         if filters:
@@ -394,7 +394,7 @@ def get_apar_report():
         if enrolment_start_date and enrolment_end_date:
             start_date = datetime.strptime(enrolment_start_date, '%Y-%m-%d')
             end_date = datetime.strptime(enrolment_end_date, '%Y-%m-%d')
-            logger.info(f"Generating APAR report from {start_date} to {end_date} with filters: {filters}, training_plan_year: {training_plan_year}")
+            logger.info(f"Generating APAR report from {start_date} to {end_date} with filters: {filters}, plan_year: {plan_year}")
             if IS_APAR_DATE_VALIDATION.lower() == 'true':
                 if (end_date - start_date).days > 365:
                     logger.warning(f"Date range exceeds 1 year: start_date={start_date}, end_date={end_date}")
@@ -404,7 +404,7 @@ def get_apar_report():
             # Call the service layer to fetch/process data from BQ
             csv_data = ReportService.fetch_apar_enrolment_report(
                 enrolment_start_date, enrolment_end_date, filters, required_columns,
-                training_plan_year=training_plan_year
+                plan_year=plan_year
             )
 
             if not csv_data:
