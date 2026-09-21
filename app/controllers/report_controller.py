@@ -371,8 +371,6 @@ def get_apar_report():
                 logger.warning(f"No data found for the given date range: {enrolment_start_date} to {enrolment_end_date}")
                 return jsonify({'error': 'No data found for the given filters/date range.'}), 404
 
-        except PlanYearError as e:
-            return handle_error(e, str(e), 400)
         except Exception as e:
             error_message = str(e)
             logger.error(f"Error generating CSV stream for APAR report: {error_message}")
@@ -397,6 +395,14 @@ def get_apar_report():
         error_message = str(e)
         logger.error(f"Missing required fields in request: {error_message}")
         return jsonify({'error': 'Invalid input. Please provide enrolment_start_date and enrolment_end_date.', 'details': error_message}), 400
+
+    except PlanYearError as e:
+        error_message = str(e)
+        logger.error(f"Invalid plan_year: {error_message}")
+        return jsonify({
+            'error': 'Invalid plan_year',
+            'details': error_message
+        }), 400
 
     except ValueError as e:
         error_message = str(e)

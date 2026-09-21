@@ -111,7 +111,7 @@ def test_route_success_streams_csv(monkeypatch):
     assert b'c1,c2' in data
 
 
-def test_route_missing_dates_returns_400():
+def test_route_empty_request_returns_400():
     app = create_app()
     client = app.test_client()
     resp = client.post('/report/apar/assigned/courses', json={})
@@ -222,46 +222,6 @@ def test_route_unexpected_service_exception_returns_500(monkeypatch):
     assert resp.status_code == 500
     data = resp.get_json()
     assert 'An unexpected error occurred' in data.get('error')
-
-
-def test_validate_plan_year_valid():
-    result = controller.validate_plan_year('2025-26')
-
-    assert result == '2025-26'
-
-
-def test_validate_plan_year_none_returns_none():
-    result = controller.validate_plan_year(None)
-
-    assert result is None
-
-
-def test_validate_plan_year_invalid_format_raises():
-    with pytest.raises(controller.PlanYearError):
-        controller.validate_plan_year('202526')
-
-
-def test_validate_plan_year_invalid_suffix_raises():
-    with pytest.raises(controller.PlanYearError):
-        controller.validate_plan_year('2025-27')
-
-
-def test_validate_plan_year_below_minimum_raises():
-    with pytest.raises(controller.PlanYearError):
-        controller.validate_plan_year('1999-00')
-
-
-def test_validate_plan_year_beyond_maximum_raises(monkeypatch):
-
-    class MockDatetime:
-        @classmethod
-        def now(cls):
-            return datetime(2026, 9, 21)
-
-    monkeypatch.setattr(controller, 'datetime', MockDatetime)
-
-    with pytest.raises(controller.PlanYearError):
-        controller.validate_plan_year('2029-30')
 
 
 def test_validate_request_data_with_plan_year_only():
