@@ -7,31 +7,13 @@ import ctypes
 from constants import APAR_FILTER_KEY, IS_APAR_DATE_VALIDATION
 import time as time_module
 import re
+from app.common.validation_utils import validate_plan_year, PlanYearError
 
 # Configure logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 apar_report_controller = Blueprint('apar_report_controller', __name__)
-
-# trainingPlanYear is optional, but when provided, it must be a valid
-# financial year in "YYYY-YY" format (e.g. "2025-26").
-# MAX_PLAN_YEAR_OFFSET allows future planning years up to the
-# configured limit.
-MIN_PLAN_YEAR = 2000
-MAX_PLAN_YEAR_OFFSET = 2
-PLAN_YEAR_PATTERN = re.compile(r'^(\d{4})-(\d{2})$')
-
-class PlanYearError(ValueError):
-    """
-    Raised when the `planYear` input is invalid.
-
-    This custom exception allows year-validation errors to be handled
-    separately from date-parsing errors. Without it, the error could be
-    caught by the generic `ValueError` handler and incorrectly return
-    the date-specific message: "Invalid date format. Use YYYY-MM-DD."
-    """
-    pass
 
 @apar_report_controller.route('/report/apar/assigned/courses', methods=['POST'])
 def _get_assigned_courses_apar_report():
@@ -149,52 +131,6 @@ def validate_date_range(start_date_str, end_date_str):
 
     # Return normalized datetimes so callers can use timestamped ranges
     return start_date, end_date
-
-
-def validate_plan_year(plan_year):
-    """
-    Validates the optional planYear field.
-
-    Expects a financial year string in "YYYY-YY" format (e.g. "2025-26"),
-    and returns it normalized, or None if the field wasn't provided at
-    all -- callers/downstream service code should treat None as "no
-    year filter applied", same as before this validation existed.
-
-    Rejects anything that isn't in "YYYY-YY" format, anything where the
-    second part isn't the two-digit continuation of the first year, and
-    anything whose start year is outside a plausible range, before it
-    ever reaches the service/DB layer.
-    """
-    if plan_year is None:
-        return None
-
-    match = PLAN_YEAR_PATTERN.match(str(plan_year).strip())
-    if not match:
-        raise PlanYearError(
-            f"planYear must be in financial year format YYYY-YY (e.g. 2025-26), got: {plan_year!r}"
-        )
-
-    start_year = int(match.group(1))
-    expected_suffix = f"{(start_year + 1) % 100:02d}"
-    if match.group(2) != expected_suffix:
-        raise PlanYearError(
-            f"planYear must be a valid financial year, expected {start_year}-{expected_suffix}, got: {plan_year!r}"
-        )
-
-    # Financial year runs April to March, so the "current" FY start year
-    # rolls over in April rather than on the calendar new year.
-    today = datetime.now()
-    current_fy_start_year = today.year if today.month >= 4 else today.year - 1
-    max_fy_start_year = current_fy_start_year + MAX_PLAN_YEAR_OFFSET
-
-    if not (MIN_PLAN_YEAR <= start_year <= max_fy_start_year):
-        min_fy = f"{MIN_PLAN_YEAR}-{(MIN_PLAN_YEAR + 1) % 100:02d}"
-        max_fy = f"{max_fy_start_year}-{(max_fy_start_year + 1) % 100:02d}"
-        raise PlanYearError(
-            f"planYear must be between {min_fy} and {max_fy}, got: {plan_year!r}"
-        )
-
-    return f"{start_year}-{expected_suffix}"
 
 
 def generate_report(start_date, end_date, filters, required_columns, plan_year=None):

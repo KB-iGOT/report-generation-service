@@ -13,19 +13,13 @@ import io
 import uuid
 import random
 from datetime import timedelta
+from app.common.validation_utils import validate_plan_year, PlanYearError
 
 # Configure logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 report_controller = Blueprint('report_controller', __name__)
-
-# plan_year bounds for /report/apar/enrolment
-# used for the equivalent field on /report/apar/assigned/courses, kept
-# here too since this file doesn't import from that controller.
-MIN_PLAN_YEAR = 2000
-MAX_PLAN_YEAR_OFFSET = 2
-PLAN_YEAR_PATTERN = re.compile(r'^(\d{4})-(\d{2})$')
 
 @report_controller.route('/report/org/enrolment/<org_id>', methods=['POST'])
 def get_report(org_id):
@@ -345,41 +339,7 @@ def get_apar_report():
         filters = data.get('filters', {})
         required_columns = data.get('required_columns', [])
 
-        # plan_year is optional. If not provided, no year filter is
-        # applied and existing behavior remains unchanged. If provided, it must
-        # be a valid financial year in "YYYY-YY" format (e.g. "2025-26");
-        # otherwise, return 400 before reaching the service layer. Validation
-        # is kept inline to match this file's existing style.
-        plan_year = data.get('plan_year')
-        if plan_year is not None:
-            match = PLAN_YEAR_PATTERN.match(str(plan_year).strip())
-            if not match:
-                return jsonify({
-                    'error': f"plan_year must be in financial year format YYYY-YY (e.g. 2025-26), got: {plan_year!r}"
-                }), 400
-
-            start_year = int(match.group(1))
-            expected_suffix = f"{(start_year + 1) % 100:02d}"
-            if match.group(2) != expected_suffix:
-                return jsonify({
-                    'error': f"plan_year must be a valid financial year, expected {start_year}-{expected_suffix}, got: {plan_year!r}"
-                }), 400
-
-            # Financial year runs April to March, so the "current" FY start
-            # year rolls over in April rather than on the calendar new year.
-            today = datetime.now()
-            current_fy_start_year = today.year if today.month >= 4 else today.year - 1
-            max_fy_start_year = current_fy_start_year + MAX_PLAN_YEAR_OFFSET
-
-            if not (MIN_PLAN_YEAR <= start_year <= max_fy_start_year):
-                min_fy = f"{MIN_PLAN_YEAR}-{(MIN_PLAN_YEAR + 1) % 100:02d}"
-                max_fy = f"{max_fy_start_year}-{(max_fy_start_year + 1) % 100:02d}"
-                return jsonify({
-                    'error': f"plan_year must be between {min_fy} and {max_fy}, got: {plan_year!r}"
-                }), 400
-
-            plan_year = f"{start_year}-{expected_suffix}"
-
+        plan_year = validate_plan_year(data.get('plan_year'))
         # Validate filters keys if filters present
         if filters:
             allowed_keys = APAR_FILTER_KEY.split(',')
@@ -411,6 +371,8 @@ def get_apar_report():
                 logger.warning(f"No data found for the given date range: {enrolment_start_date} to {enrolment_end_date}")
                 return jsonify({'error': 'No data found for the given filters/date range.'}), 404
 
+        except PlanYearError as e:
+            return handle_error(e, str(e), 400)
         except Exception as e:
             error_message = str(e)
             logger.error(f"Error generating CSV stream for APAR report: {error_message}")
