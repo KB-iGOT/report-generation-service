@@ -5,6 +5,7 @@ from app.services import apar_report_service
 from app.services.apar_report_service import AparReportService
 from datetime import datetime
 import builtins
+from unittest.mock import patch, MagicMock
 
 # Helper to consume generator into list
 def collect(gen):
@@ -86,26 +87,51 @@ def test_apply_masking_edge_cases():
     assert set(rd['phone']) == {'*'}
 
 def test_fetch_apar_assigned_courses_report_success(monkeypatch):
-    # Prepare df to be returned by _execute_query
-    df = pd.DataFrame([{'col1': 'v1', 'email': 'e@d.com', 'phone': '111122223333'}])
+    df = pd.DataFrame([
+        {'col1': 'v1', 'email': 'e@d.com', 'phone': '111122223333'}
+    ])
 
-    # Patch _build_query_and_params to avoid relying on constants
-    monkeypatch.setattr(AparReportService, "_build_query_and_params",
-                        lambda start, end, filters, table: ("q", []))
-    # Patch _execute_query to return our df
-    monkeypatch.setattr(AparReportService, "_execute_query", lambda client, q, p: df.copy())
+    # Mock BigQueryService so no real configuration/file is required
+    monkeypatch.setattr(
+        apar_report_service,
+        "BigQueryService",
+        lambda: MagicMock()
+    )
+
+    # Patch _build_query_and_params
+    monkeypatch.setattr(
+        AparReportService,
+        "_build_query_and_params",
+        lambda start, end, filters, table, plan_year=None: ("q", [])
+    )
+
+    # Patch _execute_query
+    monkeypatch.setattr(
+        AparReportService,
+        "_execute_query",
+        lambda client, q, p: df.copy()
+    )
+
     apar_report_service.IS_MASKING_ENABLED = 'false'
 
-    gen = AparReportService.fetch_apar_assigned_courses_report("2022-01-01", "2022-01-02", {}, [])
+    gen = AparReportService.fetch_apar_assigned_courses_report(
+        "2022-01-01",
+        "2022-01-02",
+        {},
+        []
+    )
+
     assert gen is not None
+
     out = collect(gen)
+
     assert out[0].strip() == "col1|email|phone"
     assert "v1" in out[1]
 
 def test_fetch_apar_assigned_courses_report_handles_exception(monkeypatch):
     # make _execute_query raise
     monkeypatch.setattr(AparReportService, "_build_query_and_params",
-                        lambda start, end, filters, table: ("q", []))
+                        lambda start, end, filters, table, plan_year=None: ("q", []))
     def fake_exec(client, q, p):
         raise RuntimeError("boom")
     monkeypatch.setattr(AparReportService, "_execute_query", fake_exec)
@@ -125,3 +151,54 @@ def test_generate_csv_stream_cleans_up_dataframe(monkeypatch):
     # after generator exhaustion, df should have had its rows dropped (in-place)
     # df may be modified in-place - check index length is 0
     assert df.shape[0] == 2
+
+def test_build_query_and_params_with_plan_year():
+    query, params = AparReportService._build_query_and_params(
+        '2023-01-01',
+        '2023-01-31',
+        {'user_email': 'test@example.com'},
+        'master_enrolment_apar_dummy',
+        plan_year='2025-26'
+    )
+
+    assert 'plan_year = @plan_year' in query
+
+    plan_year_param = next(
+        param for param in params
+        if param.name == 'plan_year'
+    )
+
+    assert plan_year_param.value == '2025-26'
+
+def test_build_query_and_params_without_plan_year():
+    query, params = AparReportService._build_query_and_params(
+        '2023-01-01',
+        '2023-01-31',
+        {'user_email': 'test@example.com'},
+        'master_enrolment_apar_dummy'
+    )
+
+    assert 'plan_year = @plan_year' not in query
+
+    assert not any(
+        param.name == 'plan_year'
+        for param in params
+    )
+
+def test_build_query_and_params_plan_year_with_whitespace():
+    query, params = AparReportService._build_query_and_params(
+        '2023-01-01',
+        '2023-01-31',
+        {'user_email': 'test@example.com'},
+        'master_enrolment_apar_dummy',
+        plan_year=' 2025-26 '
+    )
+
+    assert 'plan_year = @plan_year' in query
+
+    plan_year_param = next(
+        param for param in params
+        if param.name == 'plan_year'
+    )
+
+    assert plan_year_param.value == '2025-26'
