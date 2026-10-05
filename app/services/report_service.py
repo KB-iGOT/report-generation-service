@@ -410,8 +410,8 @@ class ReportService:
             df = client.query(query, job_config=job_config).to_dataframe()
 
             # Deduplicate "Comprehensive Assessment Program" records
-            df = ReportService._deduplicate_comprehensive_assessment_program(df)
-            ReportService.logger.info(f"After Comprehensive Assessment Program deduplication: {len(df)} rows.")
+            df = ReportService._deduplicate_comprehensive_assessment(df)
+            ReportService.logger.info(f"After Comprehensive Assessment deduplication: {len(df)} rows.")
 
             # Filter columns if required
             if required_columns:
@@ -479,48 +479,128 @@ class ReportService:
         return group.iloc[[0]]
 
     @staticmethod
-    def _deduplicate_comprehensive_assessment_program(df):
+    def _deduplicate_comprehensive_assessment(df):
         """
-        Deduplicate records where content_sub_type = 'Comprehensive Assessment Program'.
-        For each user with more than 1 such enrolment:
-          1. If any record has comprehensive_level_assessment_status = 'Pass', keep one Pass record.
+        Deduplicate Comprehensive Assessment records.
+
+        Old CA:
+          content_type = 'curated_program'
+          content_sub_type = 'Comprehensive Assessment Program'
+
+        New CA:
+          content_type = 'Standalone Assessment'
+          content_sub_type = 'Comprehensive Assessment'
+
+        For each user + plan_year combination with more than 1 CA enrolment:
+          1. If any record has comprehensive_level_assessment_status = 'Pass',
+             keep one Pass record.
           2. Else if any record is 'Fail', keep one Fail record.
           3. Else keep the record with the latest content_last_accessed_on.
-        Non-'Comprehensive Assessment Program' records are returned unchanged.
+
+        Same user + same plan_year is considered duplicate.
+        plan_year=None/NaN is also considered a valid grouping value.
+
+        Records with different plan_year values are treated as separate enrolments.
+        Non-CA records are returned unchanged.
         """
-        if 'content_sub_type' not in df.columns:
-            ReportService.logger.info("Column 'content_sub_type' not found; skipping Comprehensive Assessment Program dedup.")
-            return df
 
-        curated_mask = df['content_sub_type'] == 'Comprehensive Assessment Program'
-        non_curated_df = df[~curated_mask]
-        curated_df = df[curated_mask]
-
-        if curated_df.empty:
-            return df
-
-        user_counts = curated_df.groupby('user_id').size()
-        multi_enrol_users = set(user_counts[user_counts > 1].index)
-
-        if not multi_enrol_users:
-            return df
-
-        single_enrol_curated = curated_df[~curated_df['user_id'].isin(multi_enrol_users)]
-        multi_enrol_curated = curated_df[curated_df['user_id'].isin(multi_enrol_users)]
-
-        has_assessment_col = 'comprehensive_level_assessment_status' in df.columns
-        has_last_accessed_col = 'content_last_accessed_on' in df.columns
-
-        deduped_rows = [
-            ReportService._select_curated_record(group, has_assessment_col, has_last_accessed_col)
-            for _, group in multi_enrol_curated.groupby('user_id')
+        required_columns = [
+            'content_type',
+            'content_sub_type',
+            'user_id',
+            'plan_year'
         ]
 
-        deduped_df = pd.concat(deduped_rows, ignore_index=True) if deduped_rows else pd.DataFrame(columns=df.columns)
+        missing_columns = [
+            col for col in required_columns
+            if col not in df.columns
+        ]
 
-        result = pd.concat([non_curated_df, single_enrol_curated, deduped_df], ignore_index=True)
-        ReportService.logger.info(
-            f"Comprehensive Assessment Program dedup: {len(curated_df)} -> {len(single_enrol_curated) + len(deduped_df)} rows "
-            f"({len(multi_enrol_users)} users had multiple enrolments)."
+        if missing_columns:
+            ReportService.logger.info(
+                f"Columns {missing_columns} not found; "
+                "skipping Comprehensive Assessment dedup."
+            )
+            return df
+
+        # Identify old and new CA records.
+        ca_mask = (
+                (
+                        (df['content_type'] == 'Curated Program') &
+                        (df['content_sub_type'] == 'Comprehensive Assessment Program')
+                )
+                |
+                (
+                        (df['content_type'] == 'Standalone Assessment') &
+                        (df['content_sub_type'] == 'Comprehensive Assessment')
+                )
         )
+
+        ca_df = df[ca_mask]
+
+        if ca_df.empty:
+            return df
+
+        non_ca_df = df[~ca_mask]
+
+        group_columns = ['user_id', 'plan_year']
+
+        # Identify all records belonging to duplicate groups.
+        duplicate_mask = ca_df.duplicated(
+            subset=group_columns,
+            keep=False
+        )
+
+        duplicate_ca_df = ca_df[duplicate_mask]
+        single_ca_df = ca_df[~duplicate_mask]
+
+        if duplicate_ca_df.empty:
+            return df
+
+        has_assessment_col = (
+                'comprehensive_level_assessment_status' in df.columns
+        )
+        has_last_accessed_col = (
+                'content_last_accessed_on' in df.columns
+        )
+
+        # Group once and select the required record from each duplicate group.
+        duplicate_groups = duplicate_ca_df.groupby(
+            group_columns,
+            dropna=False
+        )
+
+        duplicate_group_count = duplicate_groups.ngroups
+
+        deduped_rows = [
+            ReportService._select_curated_record(
+                group,
+                has_assessment_col,
+                has_last_accessed_col
+            )
+            for _, group in duplicate_groups
+        ]
+
+        deduped_df = pd.concat(
+            deduped_rows,
+            ignore_index=True
+        )
+
+        result = pd.concat(
+            [
+                non_ca_df,
+                single_ca_df,
+                deduped_df
+            ],
+            ignore_index=True
+        )
+
+        ReportService.logger.info(
+            f"Comprehensive Assessment dedup: "
+            f"{len(ca_df)} -> "
+            f"{len(single_ca_df) + len(deduped_df)} rows "
+            f"({duplicate_group_count} user/plan_year groups had "
+            f"multiple CA enrolments)."
+        )
+
         return result

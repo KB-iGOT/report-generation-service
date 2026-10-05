@@ -61,7 +61,7 @@ def _get_assigned_courses_apar_report():
         return response
 
     except KeyError as e:
-        return handle_error(e, "Invalid input. Please provide assigned_on_start_date and assigned_on_end_date.", 400)
+        return handle_error(e, "Invalid input. Please provide assigned_on_start_date and assigned_on_end_date, or plan_year.", 400)
     except PlanYearError as e:
         return handle_error(e, str(e), 400)
     except ValueError as e:
