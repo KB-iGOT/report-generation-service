@@ -5,6 +5,7 @@ import logging
 import gc
 import ctypes
 import time as time_module
+import re
 from app.authentication.AccessTokenValidator import AccessTokenValidator
 from constants import X_AUTHENTICATED_USER_TOKEN, IS_VALIDATION_ENABLED, X_ORG_ID, APAR_FILTER_KEY, IS_APAR_DATE_VALIDATION
 from app.services.GcsToBigQuerySyncService import GcsToBigQuerySyncService
@@ -12,6 +13,7 @@ import io
 import uuid
 import random
 from datetime import timedelta
+from app.common.validation_utils import validate_plan_year, PlanYearError
 
 # Configure logger
 logging.basicConfig(level=logging.INFO)
@@ -66,7 +68,7 @@ def get_report(org_id):
         is_apar_report = data.get('isAparReport', False)
          
         logger.info(f"Generating report for org_id={org_id} from {start_date} to {end_date}")
-         #Validate date range
+        #Validate date range
         if (end_date - start_date).days > 365:
             logger.warning(f"Date range exceeds 1 year: start_date={start_date}, end_date={end_date}")
             return jsonify({'error': 'Date range cannot exceed 1 year'}), 400
@@ -122,7 +124,7 @@ def get_report(org_id):
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
         return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
-    finally: 
+    finally:
         gc.collect()
         try:
             logger.info("inside malloc_trim:")
@@ -179,7 +181,7 @@ def get_user_report(orgId):
         required_columns = data.get('required_columns', [])
 
         logger.info(f"Generating user report for userEmail={user_email}, userPhone={user_phone}, ehrmsId={ehrms_id}")
-        
+
         try:
             csv_data = ReportService.fetch_user_cumulative_report(
                 user_email, user_phone, ehrms_id, start_date, end_date, orgId,
@@ -205,8 +207,8 @@ def get_user_report(orgId):
                 "Content-Disposition": f'attachment; filename="user-report.csv"'
             }
         )
-        
-         # Explicitly trigger garbage collection to free up memory
+
+        # Explicitly trigger garbage collection to free up memory
         del csv_data
         gc.collect()
 
@@ -221,7 +223,7 @@ def get_user_report(orgId):
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
         return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
-    finally: 
+    finally:
         gc.collect()
         try:
             logger.info("inside malloc_trim:")
@@ -241,8 +243,8 @@ def get_org_user_report(orgId):
             return jsonify({'error': 'Organization ID is required.'}), 400
         if not ReportService.isValidOrg(x_org_id, orgId):
             logger.error(f"Invalid organization ID: {orgId}")
-            return jsonify({'error': f'Not authorized to view the report for : {orgId}'}), 401        
-        # Parse and validate input parameters
+            return jsonify({'error': f'Not authorized to view the report for : {orgId}'}), 401
+            # Parse and validate input parameters
         data = request.get_json()
         if not data:
             logger.error("Request body is missing")
@@ -267,7 +269,7 @@ def get_org_user_report(orgId):
 
 
         logger.info(f"Generating user report for orgId={orgId}")
-        
+
         try:
             csv_data = ReportService.fetch_master_user_data(
                 orgId, is_full_report_required, required_columns=required_columns, user_creation_start_date=user_creation_start_date, user_creation_end_date=user_creation_end_date
@@ -292,8 +294,8 @@ def get_org_user_report(orgId):
                 "Content-Disposition": f'attachment; filename="user-report.csv"'
             }
         )
-        
-         # Explicitly trigger garbage collection to free up memory
+
+        # Explicitly trigger garbage collection to free up memory
         del csv_data
         gc.collect()
 
@@ -308,7 +310,7 @@ def get_org_user_report(orgId):
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
         return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
-    finally: 
+    finally:
         gc.collect()
         try:
             logger.info("inside malloc_trim:")
@@ -337,6 +339,7 @@ def get_apar_report():
         filters = data.get('filters', {})
         required_columns = data.get('required_columns', [])
 
+        plan_year = validate_plan_year(data.get('plan_year'))
         # Validate filters keys if filters present
         if filters:
             allowed_keys = APAR_FILTER_KEY.split(',')
@@ -351,16 +354,17 @@ def get_apar_report():
         if enrolment_start_date and enrolment_end_date:
             start_date = datetime.strptime(enrolment_start_date, '%Y-%m-%d')
             end_date = datetime.strptime(enrolment_end_date, '%Y-%m-%d')
-            logger.info(f"Generating APAR report from {start_date} to {end_date} with filters: {filters}")
+            logger.info(f"Generating APAR report from {start_date} to {end_date} with filters: {filters}, plan_year: {plan_year}")
             if IS_APAR_DATE_VALIDATION.lower() == 'true':
                 if (end_date - start_date).days > 365:
                     logger.warning(f"Date range exceeds 1 year: start_date={start_date}, end_date={end_date}")
                     return jsonify({'error': 'Date range cannot exceed 1 year'}), 400
-            
+
         try:
             # Call the service layer to fetch/process data from BQ
             csv_data = ReportService.fetch_apar_enrolment_report(
-                enrolment_start_date, enrolment_end_date, filters, required_columns
+                enrolment_start_date, enrolment_end_date, filters, required_columns,
+                plan_year=plan_year
             )
 
             if not csv_data:
@@ -392,6 +396,14 @@ def get_apar_report():
         logger.error(f"Missing required fields in request: {error_message}")
         return jsonify({'error': 'Invalid input. Please provide enrolment_start_date and enrolment_end_date.', 'details': error_message}), 400
 
+    except PlanYearError as e:
+        error_message = str(e)
+        logger.error(f"Invalid plan_year: {error_message}")
+        return jsonify({
+            'error': 'Invalid plan_year',
+            'details': error_message
+        }), 400
+
     except ValueError as e:
         error_message = str(e)
         logger.error(f"Invalid date format in request: {error_message}")
@@ -406,7 +418,7 @@ def get_apar_report():
         error_message = str(e)
         logger.exception(f"Unexpected error occurred: {error_message}")
         return jsonify({'error': 'An unexpected error occurred. Please try again later.', 'details': error_message}), 500
-    finally: 
+    finally:
         gc.collect()
         try:
             logger.info("inside malloc_trim:")

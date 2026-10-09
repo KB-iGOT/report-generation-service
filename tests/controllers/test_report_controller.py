@@ -1158,3 +1158,113 @@ def test_get_report_with_json_none(mock_report_service, client):
     data = response.get_json()
     assert 'An unexpected error occurred' in data['error']
     mock_report_service.isValidOrg.assert_called_once_with('org456', 'org123')
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_without_plan_year(mock_report_service, client):
+    """Test APAR report generation without optional plan_year."""
+    mock_report_service.fetch_apar_enrolment_report.return_value = iter(
+        ["header\n", "data1\n", "data2\n"]
+    )
+
+    response = client.post(
+        '/report/apar/enrolment',
+        json={
+            'enrolment_start_date': '2023-01-01',
+            'enrolment_end_date': '2023-01-31',
+            'filters': {'user_email': 'test@example.com'}
+        }
+    )
+
+    assert response.status_code == 200
+
+    mock_report_service.fetch_apar_enrolment_report.assert_called_once()
+    _, kwargs = mock_report_service.fetch_apar_enrolment_report.call_args
+
+    assert kwargs['plan_year'] is None
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_with_plan_year(mock_report_service, client):
+    """Test APAR report generation with optional plan_year."""
+    mock_report_service.fetch_apar_enrolment_report.return_value = iter(
+        ["header\n", "data1\n", "data2\n"]
+    )
+
+    response = client.post(
+        '/report/apar/enrolment',
+        json={
+            'enrolment_start_date': '2023-01-01',
+            'enrolment_end_date': '2023-01-31',
+            'filters': {'user_email': 'test@example.com'},
+            'plan_year': '2025-26'
+        }
+    )
+
+    assert response.status_code == 200
+
+    mock_report_service.fetch_apar_enrolment_report.assert_called_once()
+    _, kwargs = mock_report_service.fetch_apar_enrolment_report.call_args
+
+    assert kwargs['plan_year'] == '2025-26'
+
+
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_plan_year_with_whitespace(mock_report_service, client):
+    """Test APAR report generation with plan_year containing whitespace."""
+    mock_report_service.fetch_apar_enrolment_report.return_value = iter(
+        ["header\n", "data1\n", "data2\n"]
+    )
+
+    response = client.post(
+        '/report/apar/enrolment',
+        json={
+            'enrolment_start_date': '2023-01-01',
+            'enrolment_end_date': '2023-01-31',
+            'filters': {'user_email': 'test@example.com'},
+            'plan_year': ' 2025-26 '
+        }
+    )
+
+    assert response.status_code == 200
+
+    mock_report_service.fetch_apar_enrolment_report.assert_called_once()
+    _, kwargs = mock_report_service.fetch_apar_enrolment_report.call_args
+
+    assert kwargs['plan_year'] == '2025-26'
+
+
+@pytest.mark.parametrize(
+    'plan_year',
+    [
+        '2025',
+        '25-26',
+        '2025/26',
+        '2025-2026',
+        'abcd-ef',
+        '2025_26',
+        '2025-',
+        '-26',
+    ]
+)
+@patch("app.controllers.report_controller.ReportService")
+def test_get_apar_report_invalid_plan_year(
+        mock_report_service, client, plan_year
+):
+    """Test APAR report generation with invalid plan_year."""
+
+    response = client.post(
+        '/report/apar/enrolment',
+        json={
+            'enrolment_start_date': '2023-01-01',
+            'enrolment_end_date': '2023-01-31',
+            'filters': {'user_email': 'test@example.com'},
+            'plan_year': plan_year
+        }
+    )
+
+    assert response.status_code == 400
+
+    data = response.get_json()
+    assert 'plan_year' in data['error']
+
+    mock_report_service.fetch_apar_enrolment_report.assert_not_called()
